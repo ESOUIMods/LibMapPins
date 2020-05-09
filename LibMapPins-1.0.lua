@@ -936,16 +936,20 @@ EVENT_MANAGER:RegisterForEvent(lib.name, EVENT_ADD_ON_LOADED, OnLoad)
 -- Returns the player position on current map as a chat output.
 -- The output format is prepared for the data collection.
 -------------------------------------------------------------------------------
-function lib:MyPosition()
-	 if SetMapToPlayerLocation() == SET_MAP_RESULT_MAP_CHANGED then
-		  CALLBACK_MANAGER:FireCallbacks("OnWorldMapChanged")
-	 end
+function lib:MyPosition(preventOutput)
+	if SetMapToPlayerLocation() == SET_MAP_RESULT_MAP_CHANGED then
+		CALLBACK_MANAGER:FireCallbacks("OnWorldMapChanged")
+	end
 
-	 local mapName = zo_strformat(SI_ENCOUNTER_LOG_MAP_NAME_FORMATTER, GetMapName())
-	 local x, y = GetMapPlayerPosition("player")
-	 local zone, subzone = self:GetZoneAndSubzone()
+	local mapName = zo_strformat(SI_ENCOUNTER_LOG_MAP_NAME_FORMATTER, GetMapName())
+	local x, y = GetMapPlayerPosition("player")
+	local zone, subzone = self:GetZoneAndSubzone()
 
-	 d(string.format("[\"%s\"][\"%s\"] = { %0.5f, %0.5f } -- %s", zone, subzone, x, y, mapName))
+	if preventOutput then
+		return x, y, zone, subzone, mapName
+	else
+		return CHAT_ROUTER:AddDebugMessage(string.format("[\"%s\"][\"%s\"] = { %0.5f, %0.5f } -- %s", zone, subzone, x, y, mapName))
+	end
 end
 
 if SLASH_COMMANDS['/mypos'] == nil then
