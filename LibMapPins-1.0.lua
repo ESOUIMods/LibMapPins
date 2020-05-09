@@ -26,7 +26,7 @@
 -- OTHER DEALINGS IN THE SOFTWARE.
 --
 -------------------------------------------------------------------------------
-local MAJOR, MINOR = "LibMapPins-1.0", 10019
+local MAJOR, MINOR = "LibMapPins-1.0", 10020
 
 local lib, oldminor
 if LibStub then
@@ -710,12 +710,9 @@ end
    "art/maps/elsweyr/jodesembrace1.base_0.dds",
 ]]--
    
-local function mysplit(inputstr, sep)
-        if sep == nil then
-                sep = "%s"
-        end
+local function mysplit(inputstr)
         local t={}
-        for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+        for str in string.gmatch(inputstr, "([^%/]+)") do
                 table.insert(t, str)
         end
         return t
@@ -732,13 +729,12 @@ function lib:GetZoneAndSubzone(alternative, bStripUIMap, bKeepMapNum)
 		mapTexture = mapTexture:gsub("%d*$", "")
 		mapTexture = mapTexture:gsub("_+$", "")
 	end
-	splitresult = mysplit(mapTexture, "%/")
 
 	if alternative then
 		return mapTexture
 	end
 
-	return splitresult[1], splitresult[2]
+	return unpack(mysplit(mapTexture))
 end
 
 
