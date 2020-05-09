@@ -941,7 +941,7 @@ function lib:MyPosition(preventOutput)
 		CALLBACK_MANAGER:FireCallbacks("OnWorldMapChanged")
 	end
 
-	local mapName = zo_strformat(SI_ENCOUNTER_LOG_MAP_NAME_FORMATTER, GetMapName())
+	local mapName = zo_strformat(SI_WINDOW_TITLE_WORLD_MAP, GetMapName())
 	local x, y = GetMapPlayerPosition("player")
 	local zone, subzone = self:GetZoneAndSubzone()
 
