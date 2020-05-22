@@ -26,7 +26,19 @@
 -- OTHER DEALINGS IN THE SOFTWARE.
 --
 -------------------------------------------------------------------------------
-local MAJOR, MINOR = "LibMapPins-1.0", 10021
+local MAJOR = "LibMapPins-1.0"
+
+local function GetAddOnVersion()
+    local addOnManager = GetAddOnManager()
+    for i = 1, addOnManager:GetNumAddOns() do
+        local name = addOnManager:GetAddOnInfo(i)
+        if name == MAJOR then
+            return addOnManager:GetAddOnVersion(i)
+        end
+    end
+    return 0
+end
+local MINOR = GetAddOnVersion()
 
 local lib, oldminor
 if LibStub then
@@ -53,6 +65,28 @@ if not lib.pinManager then
     _G[pinType] = nil
 end
 
+local function GetPinTypeId(pinType)
+    local pinTypeId
+    if type(pinType) == "string" then
+        pinTypeId = _G[pinType]
+    elseif type(pinType) == "number" then
+        pinTypeId = pinType
+    end
+    return pinTypeId
+end
+
+local function GetPinTypeIdAndString(pinType)
+    local pinTypeString, pinTypeId
+    if type(pinType) == "string" then
+        pinTypeString = pinType
+        pinTypeId = _G[pinType]
+    elseif type(pinType) == "number" then
+        pinTypeId = pinType
+        local pinData = self.pinManager.customPins[pinTypeId]
+        pinTypeString = pinData and pinData.pinTypeString or nil
+    end
+    return pinTypeId, pinTypeString
+end
 -------------------------------------------------------------------------------
 -- Library Functions ----------------------------------------------------------
 -------------------------------------------------------------------------------
@@ -179,13 +213,7 @@ end
 function lib:CreatePin(pinType, pinTag, locX, locY, areaRadius)
     if pinTag == nil or type(locX) ~= "number" or type(locY) ~= "number" then return end
 
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
+    local pinTypeId = GetPinTypeId(pinType)
     if pinTypeId then
         local pinData = self.pinManager.customPins[pinTypeId]
         if pinData then
@@ -206,14 +234,8 @@ end
 -- pinType:       pinTypeId or pinTypeString
 -------------------------------------------------------------------------------
 function lib:GetLayoutData(pinType)
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
-    if pinTypeId ~= nil then
+    local pinTypeId = GetPinTypeId(pinType)
+    if pinTypeId then
         return ZO_MapPin.PIN_DATA[pinTypeId]
     end
 end
@@ -230,14 +252,8 @@ end
 function lib:GetLayoutKey(pinType, key)
     if type(key) ~= "string" then return end
 
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
-    if pinTypeId ~= nil and ZO_MapPin.PIN_DATA[pinTypeId] then
+    local pinTypeId = GetPinTypeId(pinType)
+    if pinTypeId and ZO_MapPin.PIN_DATA[pinTypeId] then
         return ZO_MapPin.PIN_DATA[pinTypeId][key]
     end
 end
@@ -253,14 +269,8 @@ end
 function lib:SetLayoutData(pinType, pinLayoutData)
     if type(pinLayoutData) ~= "table" then return end
 
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
-    if pinTypeId ~= nil then
+    local pinTypeId = GetPinTypeId(pinType)
+    if pinTypeId then
         pinLayoutData.level = pinLayoutData.level or 30
         pinLayoutData.texture = pinLayoutData.texture or "EsoUI/Art/Inventory/newitem_icon.dds"
 
@@ -283,14 +293,8 @@ end
 function lib:SetLayoutKey(pinType, key, data)
     if type(key) ~= "string" then return end
 
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
-    if pinTypeId ~= nil then
+    local pinTypeId = GetPinTypeId(pinType)
+    if pinTypeId then
         ZO_MapPin.PIN_DATA[pinTypeId][key] = data
     end
 end
@@ -328,20 +332,14 @@ end
 -- }
 -------------------------------------------------------------------------------
 function lib:SetClickHandlers(pinType, LMB_handler, RMB_handler)
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
-    if pinTypeId == nil then return end
-
-    if type(LMB_handler) == "table" or LMB_handler == nil then
-        ZO_MapPin.PIN_CLICK_HANDLERS[1][pinTypeId] = LMB_handler
-    end
-    if type(RMB_handler) == "table" or RMB_handler == nil then
-        ZO_MapPin.PIN_CLICK_HANDLERS[2][pinTypeId] = RMB_handler
+    local pinTypeId = GetPinTypeId(pinType)
+    if pinTypeId then
+        if type(LMB_handler) == "table" or LMB_handler == nil then
+            ZO_MapPin.PIN_CLICK_HANDLERS[MOUSE_BUTTON_INDEX_LEFT][pinTypeId] = LMB_handler
+        end
+        if type(RMB_handler) == "table" or RMB_handler == nil then
+            ZO_MapPin.PIN_CLICK_HANDLERS[MOUSE_BUTTON_INDEX_RIGHT][pinTypeId] = RMB_handler
+        end
     end
 end
 
@@ -353,13 +351,7 @@ end
 -- pinType:       pinTypeId or pinTypeString
 -------------------------------------------------------------------------------
 function lib:RefreshPins(pinType)
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
+    local pinTypeId = GetPinTypeId(pinType)
     self.pinManager:RefreshCustomPins(pinTypeId)
 end
 
@@ -372,18 +364,8 @@ end
 -- pinTag:        id assigned to the pin by function lib:CreatePin(...)
 -------------------------------------------------------------------------------
 function lib:RemoveCustomPin(pinType, pinTag)
-    local pinTypeString, pinTypeId
-    if type(pinType) == "string" then
-        pinTypeString = pinType
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-        local pinData = self.pinManager.customPins[pinTypeId]
-        if not pinData then return end
-        pinTypeString = pinData.pinTypeString
-    end
-
-    if pinTypeId ~= nil then
+    local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
+    if pinTypeId and pinTypeString then
         self.pinManager:RemovePins(pinTypeString, pinTypeId, pinTag)
     end
 end
@@ -399,18 +381,8 @@ end
 function lib:FindCustomPin(pinType, pinTag)
     if pinTag == nil then return end
 
-    local pinTypeString, pinTypeId
-    if type(pinType) == "string" then
-        pinTypeString = pinType
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-        local pinData = self.pinManager.customPins[pinTypeId]
-        if not pinData then return end
-        pinTypeString = pinData.pinTypeString
-    end
-
-    if pinTypeId ~= nil then
+    local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
+    if pinTypeId and pinTypeString then
         return self.pinManager:FindPin(pinTypeString, pinTypeId, pinTag)
     end
 end
@@ -426,14 +398,8 @@ end
 function lib:SetAddCallback(pinType, pinTypeAddCallback)
     if type(pinTypeAddCallback) ~= "function" then return end
 
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
-    if pinTypeId ~= nil then
+    local pinTypeId = GetPinTypeId(pinType)
+    if pinTypeId then
         self.pinManager.customPins[pinTypeId].layoutCallback = pinTypeAddCallback
     end
 end
@@ -449,14 +415,8 @@ end
 function lib:SetResizeCallback(pinType, pinTypeOnResizeCallback)
     if type(pinTypeOnResizeCallback) ~= "function" then return end
 
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
-    if pinTypeId ~= nil then
+    local pinTypeId = GetPinTypeId(pinType)
+    if pinTypeId then
         self.pinManager.customPins[pinTypeId].resizeCallback = pinTypeOnResizeCallback
     end
 end
@@ -470,14 +430,8 @@ end
 -- pinType:       pinTypeId or pinTypeString
 -------------------------------------------------------------------------------
 function lib:IsEnabled(pinType)
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
-    if pinTypeId ~= nil then
+    local pinTypeId = GetPinTypeId(pinType)
+    if pinTypeId then
         return self.pinManager:IsCustomPinEnabled(pinTypeId)
     end
 end
@@ -493,13 +447,7 @@ end
 --                values are true.
 -------------------------------------------------------------------------------
 function lib:SetEnabled(pinType, state)
-    local pinTypeId
-    if type(pinType) == "string" then
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-    end
-
+    local pinTypeId = GetPinTypeId(pinType)
     if pinTypeId == nil then return end
 
     local enabled
@@ -584,16 +532,7 @@ end
 --                is nil, state will be stored in savedVars[pinTypeString .. "_battleground"].
 -------------------------------------------------------------------------------
 function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVarsPveKey, savedVarsPvpKey, savedVarsImperialPvpKey, savedVarsBattlegroundKey)
-    local pinTypeString, pinTypeId
-    if type(pinType) == "string" then
-        pinTypeString = pinType
-        pinTypeId = _G[pinType]
-    elseif type(pinType) == "number" then
-        pinTypeId = pinType
-        local pinData = self.pinManager.customPins[pinTypeId]
-        if not pinData then return end
-        pinTypeString = pinData.pinTypeString
-    end
+    local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
 
     if pinTypeId == nil or self.filters[pinTypeId] then return end
 
@@ -709,8 +648,9 @@ end
    "art/maps/murkmire/ui_map_tsofeercavern01_0.dds",
    "art/maps/elsweyr/jodesembrace1.base_0.dds",
 ]]--
+
 local function mysplit(inputstr)
-    local t={}
+    local t = {}
     for str in string.gmatch(inputstr, "([^%/]+)") do
         table.insert(t, str)
     end
@@ -785,7 +725,7 @@ if lib.hookVersions.ZO_MapPin_SetData < 3 then
         function(self, pinTypeId)
             --check hook version
             if lib.hookVersions.ZO_MapPin_SetData ~= 3 then return end
-            local control = GetControl(self:GetControl(), "Background")
+            local control = self:GetControl():GetNamedChild("Background")
             local grayscale = ZO_MapPin.PIN_DATA[pinTypeId].grayscale
             if grayscale ~= nil then
                 control:SetDesaturation((type(grayscale) == "function" and grayscale(self) or grayscale) and 1 or 0)
@@ -800,7 +740,7 @@ if lib.hookVersions.ZO_MapPin_ClearData < 2 then
         function(self, ...)
             --check hook version
             if lib.hookVersions.ZO_MapPin_ClearData ~= 2 then return end
-            local control = GetControl(self:GetControl(), "Background")
+            local control = self:GetControl():GetNamedChild("Background")
             control:SetDesaturation(0)
         end)
 
@@ -953,8 +893,8 @@ end
 -- The output format is prepared for the data collection.
 -------------------------------------------------------------------------------
 local function show_position()
-    x, y, zone, subzone, mapName = lib:MyPosition()
-    d(string.format("[\"%s\"][\"%s\"] = { %0.5f, %0.5f } -- %s", zone, subzone, x, y, mapName))
+    local x, y, zone, subzone, mapName = lib:MyPosition()
+    CHAT_ROUTER:AddDebugMessage(string.format("[\"%s\"][\"%s\"] = { %0.5f, %0.5f } -- %s", zone, subzone, x, y, mapName))
 end
 
 SLASH_COMMANDS["/lmploc"] = function() show_position() end
