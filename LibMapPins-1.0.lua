@@ -1046,3 +1046,5 @@ EVENT_MANAGER:RegisterForEvent("MapPinTest_OnLoad", EVENT_ADD_ON_LOADED, OnLoad)
 -------------------------------------------------------------------------------
 -- END of sample code
 --]]---------------------------------------------------------------------------
+
+LibMapPins = lib

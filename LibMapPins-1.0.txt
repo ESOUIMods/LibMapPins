@@ -1,4 +1,4 @@
-## Title: LibMapPins 1.0 r22
+## Title: LibMapPins
 ## Version: 1.0 r23
 ## AddOnVersion: 10023
 ## Author: Garkin
