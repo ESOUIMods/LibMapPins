@@ -135,12 +135,12 @@ end
 --                that will be called when mouse is over the pin, it does not
 --                need to create tooltip.
 --    tooltip =   (nilable) tooltip mode,  number between 1 and 4. It is
---                defined in WorldMap.lua as follows:
---                local TOOLTIP_MODE = {
---                   INFORMATION = 1,
---                   KEEP = 2,
---                   MAP_LOCATION = 3,
---                   IMPERIAL_CITY = 4,
+--                defined in mappin.lua as follows:
+--                ZO_MAP_TOOLTIP_MODE =
+--                {
+--                    INFORMATION = 1,
+--                    KEEP = 2,
+--                    MAP_LOCATION = 3,
 --                }
 --    hasTooltip = (optional), function(pin) which returns true/false to
 --                enable/disable tooltip.
@@ -174,21 +174,21 @@ function lib:AddPinType(pinTypeString, pinTypeAddCallback, pinTypeOnResizeCallba
     if type(pinTooltipCreator) == "string" then
         local text = pinTooltipCreator
         pinTooltipCreator =
-            {
-                creator = function(pin)
-                    if IsInGamepadPreferredMode() then
-                        local InformationTooltip = ZO_MapLocationTooltip_Gamepad
-                        local baseSection = InformationTooltip.tooltip
-                        InformationTooltip:LayoutIconStringLine(baseSection, nil, text, baseSection:GetStyle("mapLocationTooltipContentName"))
-                    else
-                        SetTooltipText(InformationTooltip, text)
-                    end
-                end,
-                tooltip = 1,
-            }
+        {
+            creator = function(pin)
+                if IsInGamepadPreferredMode() then
+                    local InformationTooltip = ZO_MapLocationTooltip_Gamepad
+                    local baseSection = InformationTooltip.tooltip
+                    InformationTooltip:LayoutIconStringLine(baseSection, nil, text, baseSection:GetStyle("mapLocationTooltipContentName"))
+                else
+                    SetTooltipText(InformationTooltip, text)
+                end
+            end,
+            tooltip = ZO_MAP_TOOLTIP_MODE.INFORMATION,
+        }
     elseif type(pinTooltipCreator) == "table" then
         if type(pinTooltipCreator.tooltip) ~= "number" then
-            pinTooltipCreator.tooltip = 1 --InformationTooltip
+            pinTooltipCreator.tooltip = ZO_MAP_TOOLTIP_MODE.INFORMATION
         end
     elseif pinTooltipCreator ~= nil then
         return
@@ -733,28 +733,26 @@ end
 -------------------------------------------------------------------------------
 --support "grayscale" in pinLayoutData
 if lib.hookVersions.ZO_MapPin_SetData < 3 then
-    ZO_PreHook(ZO_MapPin, "SetData",
-        function(self, pinTypeId)
-            --check hook version
-            if lib.hookVersions.ZO_MapPin_SetData ~= 3 then return end
-            local control = self:GetControl():GetNamedChild("Background")
-            local grayscale = ZO_MapPin.PIN_DATA[pinTypeId].grayscale
-            if grayscale ~= nil then
-                control:SetDesaturation((type(grayscale) == "function" and grayscale(self) or grayscale) and 1 or 0)
-            end
-        end)
+    ZO_PreHook(ZO_MapPin, "SetData", function(self, pinTypeId)
+        --check hook version
+        if lib.hookVersions.ZO_MapPin_SetData ~= 3 then return end
+        local control = self:GetControl():GetNamedChild("Background")
+        local grayscale = ZO_MapPin.PIN_DATA[pinTypeId].grayscale
+        if grayscale ~= nil then
+            control:SetDesaturation((type(grayscale) == "function" and grayscale(self) or grayscale) and 1 or 0)
+        end
+    end)
 
     --set hook version
     lib.hookVersions.ZO_MapPin_SetData = 2
 end
 if lib.hookVersions.ZO_MapPin_ClearData < 2 then
-    ZO_PreHook(ZO_MapPin, "ClearData",
-        function(self, ...)
-            --check hook version
-            if lib.hookVersions.ZO_MapPin_ClearData ~= 2 then return end
-            local control = self:GetControl():GetNamedChild("Background")
-            control:SetDesaturation(0)
-        end)
+    ZO_PreHook(ZO_MapPin, "ClearData", function(self, ...)
+        --check hook version
+        if lib.hookVersions.ZO_MapPin_ClearData ~= 2 then return end
+        local control = self:GetControl():GetNamedChild("Background")
+        control:SetDesaturation(0)
+    end)
 
     --set hook version
     lib.hookVersions.ZO_MapPin_ClearData = 2
@@ -973,7 +971,7 @@ local pinTooltipCreator = {
       local locX, locY = pin:GetNormalizedPosition()
         InformationTooltip:AddLine(zo_strformat("Position of my pin is: <<1>>•<<2>>", ("%05.02f"):format(locX*100), ("%05.02f"):format(locY*100)))
    end,
-   tooltip = 1,
+   tooltip = ZO_MAP_TOOLTIP_MODE.INFORMATION,
 }
 
 --click handlers
@@ -1048,17 +1046,3 @@ EVENT_MANAGER:RegisterForEvent("MapPinTest_OnLoad", EVENT_ADD_ON_LOADED, OnLoad)
 -------------------------------------------------------------------------------
 -- END of sample code
 --]]---------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
--- AUI support (removed)
--------------------------------------------------------------------------------
-lib.AUI = lib.AUI or {}
-
-function lib.AUI.DoesMinimapExist() end
-function lib.AUI.IsMinimapEnabled() end
-function lib.AUI.IsMinimapLoaded() end
-function lib.AUI.AddCustomPinType() end
-function lib.AUI.UpdateQueuedCustomPinTypes() end
-function lib.AUI.SetQueuedCustomPinType() end
-
-LibMapPins = lib
