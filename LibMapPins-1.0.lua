@@ -173,7 +173,19 @@ function lib:AddPinType(pinTypeString, pinTypeAddCallback, pinTypeOnResizeCallba
 
     if type(pinTooltipCreator) == "string" then
         local text = pinTooltipCreator
-        pinTooltipCreator = { creator = function(pin) SetTooltipText(InformationTooltip, text) end, tooltip = 1 }
+        pinTooltipCreator =
+            {
+                creator = function(pin)
+                    if IsInGamepadPreferredMode() then
+                        local InformationTooltip = ZO_MapLocationTooltip_Gamepad
+                        local baseSection = InformationTooltip.tooltip
+                        InformationTooltip:LayoutIconStringLine(baseSection, nil, text, baseSection:GetStyle("mapLocationTooltipContentName"))
+                    else
+                        SetTooltipText(InformationTooltip, text)
+                    end
+                end,
+                tooltip = 1,
+            }
     elseif type(pinTooltipCreator) == "table" then
         if type(pinTooltipCreator.tooltip) ~= "number" then
             pinTooltipCreator.tooltip = 1 --InformationTooltip
