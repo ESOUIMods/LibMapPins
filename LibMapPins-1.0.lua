@@ -52,7 +52,6 @@ if not lib then return end
 lib.name = MAJOR
 lib.version = MINOR
 lib.updateFrom = lib.updateFrom or oldminor
-lib.hookVersions = lib.hookVersions or setmetatable({}, { __index = function() return 0 end })
 lib.filters = lib.filters or {}
 
 if not lib.pinManager then
