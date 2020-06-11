@@ -109,7 +109,7 @@ end
 --    tint  =     ZO_ColorDef object or function(pin) which returns this object.
 --                If defined, color of background texture is set to this color.
 --    grayscale = true/false, could be function(pin). If defined and not false,
---                background texure will be converted to grayscale (http://en.wikipedia.org/wiki/Colorfulness)
+--                background texure will be converted to grayscale (https://en.wikipedia.org/wiki/Colorfulness)
 --    insetX =    size of transparent texture border, used to handle mouse clicks
 --    insetY =    dtto
 --    minSize =   if not specified, default value is 18
@@ -728,36 +728,19 @@ end
 -------------------------------------------------------------------------------
 -- Hooks ----------------------------------------------------------------------
 -------------------------------------------------------------------------------
--- Hooks has to be versioned, so if I make any change to the hook, old hook will
--- be disabled. It's not possible to use backup of the original function as it
--- can break other addons
+-- support "grayscale" in pinLayoutData
 -------------------------------------------------------------------------------
---support "grayscale" in pinLayoutData
-if lib.hookVersions.ZO_MapPin_SetData < 3 then
-    ZO_PreHook(ZO_MapPin, "SetData", function(self, pinTypeId)
-        --check hook version
-        if lib.hookVersions.ZO_MapPin_SetData ~= 3 then return end
-        local control = self:GetControl():GetNamedChild("Background")
-        local grayscale = ZO_MapPin.PIN_DATA[pinTypeId].grayscale
-        if grayscale ~= nil then
-            control:SetDesaturation((type(grayscale) == "function" and grayscale(self) or grayscale) and 1 or 0)
-        end
-    end)
+ZO_PostHook(ZO_MapPin, "SetData", function(self, pinTypeId)
+	local grayscale = ZO_MapPin.PIN_DATA[pinTypeId].grayscale
+	if grayscale ~= nil then
+		self.backgroundControl:SetDesaturation((type(grayscale) == "function" and grayscale(self) or grayscale) and 1 or 0)
+	end
+end)
 
-    --set hook version
-    lib.hookVersions.ZO_MapPin_SetData = 2
-end
-if lib.hookVersions.ZO_MapPin_ClearData < 2 then
-    ZO_PreHook(ZO_MapPin, "ClearData", function(self, ...)
-        --check hook version
-        if lib.hookVersions.ZO_MapPin_ClearData ~= 2 then return end
-        local control = self:GetControl():GetNamedChild("Background")
-        control:SetDesaturation(0)
-    end)
+ZO_PostHook(ZO_MapPin, "ClearData", function(self, ...)
+	self.backgroundControl:SetDesaturation(0)
+end)
 
-    --set hook version
-    lib.hookVersions.ZO_MapPin_ClearData = 2
-end
 
 -------------------------------------------------------------------------------
 -- Scrollbox for map filters
