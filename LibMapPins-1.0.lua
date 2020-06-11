@@ -636,7 +636,7 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
 end
 
 -------------------------------------------------------------------------------
--- lib:GetZoneAndSubzone(alternativeFormat)
+-- lib:GetZoneAndSubzone(alternative, bStripUIMap, bKeepMapNum)
 -------------------------------------------------------------------------------
 -- Returns zone and subzone derived from map texture.
 
