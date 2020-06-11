@@ -82,11 +82,12 @@ local function GetPinTypeIdAndString(pinType)
         pinTypeId = _G[pinType]
     elseif type(pinType) == "number" then
         pinTypeId = pinType
-        local pinData = self.pinManager.customPins[pinTypeId]
+        local pinData = lib.pinManager.customPins[pinTypeId]
         pinTypeString = pinData and pinData.pinTypeString or nil
     end
     return pinTypeId, pinTypeString
 end
+
 -------------------------------------------------------------------------------
 -- Library Functions ----------------------------------------------------------
 -------------------------------------------------------------------------------
