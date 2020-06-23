@@ -634,6 +634,35 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
 end
 
 -------------------------------------------------------------------------------
+-- lib:AddPinFilter(pinType, context, hidden)
+-------------------------------------------------------------------------------
+-- Shows or hides the map filter checkbox for the given context
+--
+-- pinType:     pinTypeId or pinTypeString
+-- context:     which instance of the filter: "pve", "pvp", "imperialPvP" or "battleground"
+-- hidden:      true for hiding the filter, false for showing it
+-------------------------------------------------------------------------------
+function lib:SetPinFilterHidden(pinType, context, hidden) 
+    local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
+
+	if pinTypeId and self.filters[pinTypeId] then
+		local control = self.filters[pinTypeId][context]
+		if control and control:IsControlHidden() ~= hidden then
+			control:SetHidden(hidden)
+			local _, point, relativeTo, relativePoint, offsetX, offsetY, restrain = control:GetAnchor(0)
+			if hidden then
+				control.oldOffsetY = offsetY
+				offsetY = control:GetHeight() * -1
+			else
+				offsetY = control.oldOffsetY
+			end
+			control:ClearAnchors()
+			control:SetAnchor(point, relativeTo, relativePoint, offsetX, offsetY, restrain)
+		end
+	end
+end
+
+-------------------------------------------------------------------------------
 -- lib:GetZoneAndSubzone(alternative, bStripUIMap, bKeepMapNum)
 -------------------------------------------------------------------------------
 -- Returns zone and subzone derived from map texture.
@@ -1025,6 +1054,17 @@ local function OnLoad(eventCode, name)
    --add pin filters to the world map
    LMP:AddPinFilter(pinTypeId1, "MapPinTest's pins", false, savedVars, "filters")
    LMP:AddPinFilter(pinTypeId2, nil, nil, savedVars)
+
+   --hide filters for non-pve
+   LMP:SetPinFilterHidden(pinType1, "pvp", true)
+   LMP:SetPinFilterHidden(pinType1, "imperialPvP", true)
+   LMP:SetPinFilterHidden(pinType1, "battleground", true)
+
+   --more detailed hiding
+   local function OnMapChanged()
+      LMP:SetPinFilterHidden(pinType1, "pve", GetZoneId(GetCurrentMapZoneIndex()) ~= 1160) --Western Skyrim
+   end
+   CALLBACK_MANAGER:RegisterCallback("OnWorldMapChanged", OnMapChanged)
 
    EVENT_MANAGER:UnregisterForEvent("MapPinTest_OnLoad", eventCode)
 end
