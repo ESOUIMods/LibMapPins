@@ -323,15 +323,15 @@ end
 --
 -- handler = {
 --    {
---       name = string or function(pin) end  --required
---       callback = function(pin) end        --required
---       show = function(pin) end, (optional) default is true. Callback function
+--       name        = string or function(pin) end --required
+--       gamepadName = string or function(pin) end --required
+--       callback    = function(pin) end           --required
+--       show        = function(pin) end, (optional) default is true. Callback function
 --                is called only when show returns true.
---       duplicates = function(pin1, pin2) end, (optional) default is true.
+--       duplicates  = function(pin1, pin2) end, (optional) default is true.
 --                What happens when mouse click hits more than one pin. If true,
 --                pins are considered to be duplicates and just one callback
 --                function is called.
---       gamepadName = the same as name, but for gamepad
 --    },
 -- }
 -- One handler can have defined more actions, with different conditions in show
@@ -344,6 +344,12 @@ end
 -------------------------------------------------------------------------------
 function lib:SetClickHandlers(pinType, LMB_handler, RMB_handler)
     local pinTypeId = GetPinTypeId(pinType)
+    if LMB_handler and not LMB_handler.gamepadName then
+      LMB_handler.gamepadName = LMB_handler.name
+    end
+    if RMB_handler and not RMB_handler.gamepadName then
+      RMB_handler.gamepadName = RMB_handler.name
+    end
     if pinTypeId then
         if type(LMB_handler) == "table" or LMB_handler == nil then
             ZO_MapPin.PIN_CLICK_HANDLERS[MOUSE_BUTTON_INDEX_LEFT][pinTypeId] = LMB_handler
