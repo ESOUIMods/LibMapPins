@@ -196,13 +196,6 @@ function lib:AddPinType(pinTypeString, pinTypeAddCallback, pinTypeOnResizeCallba
     return pinTypeId
 end
 
-SLASH_COMMANDS["/pinlist"] = function()
-    local customPins = lib.pinManager.customPins
-    for pinId, pinLayout in pairs(customPins) do
-        df("pinId: %d - pinName: %s", pinId, pinLayout.pinTypeString)
-    end
-end
-
 -------------------------------------------------------------------------------
 -- lib:CreatePin(pinType, pinTag, locX, locY, areaRadius)
 -------------------------------------------------------------------------------
