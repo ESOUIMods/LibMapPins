@@ -3,7 +3,7 @@
 ## AddOnVersion: 10032
 ## Author: Garkin
 ## Contributors: Sensi, Assembler Maniac, Sharlikran, Scootworks
-## APIVersion: 100035 101031
+## APIVersion: 101031 101032
 ## IsLibrary: true
 ## OptionalDependsOn: LibStub
 
