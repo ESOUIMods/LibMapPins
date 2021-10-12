@@ -26,28 +26,11 @@
 -- OTHER DEALINGS IN THE SOFTWARE.
 --
 -------------------------------------------------------------------------------
-local LIB_NAME = "LibMapPins-1.0"
-
-local function GetAddOnVersion()
-    local addOnManager = GetAddOnManager()
-    for i = 1, addOnManager:GetNumAddOns() do
-        local name = addOnManager:GetAddOnInfo(i)
-        if name == LIB_NAME then
-            return addOnManager:GetAddOnVersion(i)
-        end
-    end
-    return 0
-end
-
-local lib = LibStub and LibStub:GetLibrary(LIB_NAME, LibStub.SILENT)
-if LibStub and lib then
-	CHAT_ROUTER:AddDebugMessage("Someone is using LibMapPins via LibStub! This can cause some issues.")
-end
 lib = lib or {}
 
 -------------------------------------------------------------------------------
-lib.name = LIB_NAME
-lib.version = GetAddOnVersion()
+lib.name = "LibMapPins-1.0"
+lib.version = 10033
 lib.filters = {}
 lib.pinManager = ZO_WorldMap_GetPinManager()
 

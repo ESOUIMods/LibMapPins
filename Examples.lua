@@ -23,15 +23,12 @@
 ## APIVersion: 100012
 ## SavedVariables: MapPinTest_SavedVariables
 
-Libs/LibStub/LibStub.lua
-Libs/LibMapPins-1.0/LibMapPins-1.0.lua
-
 MapPinTest.lua
 
 -------------------------------------------------------------------------------
 -- MapPinTest/MapPinTest.lua
 -------------------------------------------------------------------------------
-local LMP = LibStub("LibMapPins-1.0")
+local LMP = LibMapPins
 
 local pinType1 = "My_unique_name"
 local pinType2 = "My_even_more_unique_name"
