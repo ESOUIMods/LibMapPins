@@ -26,11 +26,10 @@
 -- OTHER DEALINGS IN THE SOFTWARE.
 --
 -------------------------------------------------------------------------------
-lib = lib or {}
+local lib = {}
 
--------------------------------------------------------------------------------
 lib.name = "LibMapPins-1.0"
-lib.version = 10033
+lib.version = 10034
 lib.filters = {}
 lib.pinManager = ZO_WorldMap_GetPinManager()
 
