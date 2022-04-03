@@ -1,9 +1,9 @@
-## Title: LibMapPins 1.0 r34
-## Version: 1.0 r34
-## AddOnVersion: 10034
+## Title: LibMapPins 1.0 r35
+## Version: 1.0 r35
+## AddOnVersion: 10035
 ## Author: Garkin
 ## Contributors: Sensi, Assembler Maniac, Sharlikran, Scootworks
-## APIVersion: 101031 101032
+## APIVersion: 101032 101033
 ## IsLibrary: true
 
 LibMapPins-1.0.lua
