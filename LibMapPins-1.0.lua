@@ -29,7 +29,7 @@
 local lib = {}
 
 lib.name = "LibMapPins-1.0"
-lib.version = 10038
+lib.version = 10039
 lib.filters = {}
 lib.pinManager = ZO_WorldMap_GetPinManager()
 
