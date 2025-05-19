@@ -257,7 +257,7 @@ function lib:SetLayoutData(pinType, pinLayoutData)
         pinLayoutData.texture = pinLayoutData.texture or "EsoUI/Art/Inventory/newitem_icon.dds"
 
         ZO_MapPin.PIN_DATA[pinTypeId] = {}
-        for k,v in pairs(pinLayoutData) do
+        for k, v in pairs(pinLayoutData) do
             ZO_MapPin.PIN_DATA[pinTypeId][k] = v
         end
     end
@@ -316,10 +316,10 @@ end
 function lib:SetClickHandlers(pinType, LMB_handler, RMB_handler)
     local pinTypeId = GetPinTypeId(pinType)
     if LMB_handler and not LMB_handler.gamepadName then
-      LMB_handler.gamepadName = LMB_handler.name
+        LMB_handler.gamepadName = LMB_handler.name
     end
     if RMB_handler and not RMB_handler.gamepadName then
-      RMB_handler.gamepadName = RMB_handler.name
+        RMB_handler.gamepadName = RMB_handler.name
     end
     if pinTypeId then
         if type(LMB_handler) == "table" or LMB_handler == nil then
@@ -445,11 +445,12 @@ function lib:SetEnabled(pinType, state)
         enabled = state and true or false
     end
 
-    local needsRefresh = self.pinManager:IsCustomPinEnabled(pinTypeId) ~= enabled
     local filter = self.filters[pinTypeId]
     if filter then
         local mapFilterType = GetMapFilterType()
-        if mapFilterType == MAP_FILTER_TYPE_STANDARD then
+        if mapFilterType == MAP_FILTER_TYPE_GLOBAL then
+            return -- Silently do nothing on global map filter
+        elseif mapFilterType == MAP_FILTER_TYPE_STANDARD then
             ZO_CheckButton_SetCheckState(filter.pve, enabled)
         elseif mapFilterType == MAP_FILTER_TYPE_AVA_CYRODIIL then
             ZO_CheckButton_SetCheckState(filter.pvp, enabled)
@@ -460,6 +461,7 @@ function lib:SetEnabled(pinType, state)
         end
     end
 
+    local needsRefresh = self.pinManager:IsCustomPinEnabled(pinTypeId) ~= enabled
     self.pinManager:SetCustomPinEnabled(pinTypeId, enabled)
 
     if needsRefresh then
@@ -521,7 +523,6 @@ end
 -------------------------------------------------------------------------------
 function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVarsPveKey, savedVarsPvpKey, savedVarsImperialPvpKey, savedVarsBattlegroundKey)
     local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
-
     if pinTypeId == nil or self.filters[pinTypeId] then return end
 
     self.filters[pinTypeId] = {}
@@ -545,67 +546,93 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
         pinCheckboxText = pinTypeString
     end
 
-    local function AddCheckbox(panel, pinCheckboxText)
+    local function AddCheckbox(panel, label)
         local checkbox = panel.checkBoxPool:AcquireObject()
-        ZO_CheckButton_SetLabelText(checkbox, pinCheckboxText)
+        ZO_CheckButton_SetLabelText(checkbox, label)
         panel:AnchorControl(checkbox)
         return checkbox
     end
 
-    filter.pve = AddCheckbox(WORLD_MAP_FILTERS.pvePanel, pinCheckboxText)
-    filter.pvp = AddCheckbox(WORLD_MAP_FILTERS.pvpPanel, pinCheckboxText)
-    filter.imperialPvP = AddCheckbox(WORLD_MAP_FILTERS.imperialPvPPanel, pinCheckboxText)
-    filter.battleground = AddCheckbox(WORLD_MAP_FILTERS.battlegroundPanel, pinCheckboxText)
+    local initialStates = {
+        [filter.pveKey] = filter.vars and filter.vars[filter.pveKey] or self:IsEnabled(pinTypeId),
+        [filter.pvpKey] = filter.vars and filter.vars[filter.pvpKey] or self:IsEnabled(pinTypeId),
+        [filter.imperialPvPKey] = filter.vars and filter.vars[filter.imperialPvPKey] or self:IsEnabled(pinTypeId),
+        [filter.battlegroundKey] = filter.vars and filter.vars[filter.battlegroundKey] or self:IsEnabled(pinTypeId),
+    }
 
-    if filter.vars ~= nil then
-        ZO_CheckButton_SetToggleFunction(filter.pve,
-            function(button, state)
-                filter.vars[filter.pveKey] = state
-                self:SetEnabled(pinTypeId, state)
-            end)
-        ZO_CheckButton_SetToggleFunction(filter.pvp,
-            function(button, state)
-                filter.vars[filter.pvpKey] = state
-                self:SetEnabled(pinTypeId, state)
-            end)
-        ZO_CheckButton_SetToggleFunction(filter.imperialPvP,
-            function(button, state)
-                filter.vars[filter.imperialPvPKey] = state
-                self:SetEnabled(pinTypeId, state)
-            end)
-        ZO_CheckButton_SetToggleFunction(filter.battleground,
-            function(button, state)
-                filter.vars[filter.battlegroundKey] = state
-                self:SetEnabled(pinTypeId, state)
-            end)
+    local function SetupCheckbox(checkbox, key)
+        ZO_CheckButton_SetToggleFunction(checkbox, function(_, state)
+            if filter.vars then
+                filter.vars[key] = state
+            end
+            self:SetEnabled(pinTypeId, state)
+        end)
 
-        local mapFilterType = GetMapFilterType()
-        if mapFilterType == MAP_FILTER_TYPE_STANDARD then
-            self:SetEnabled(pinTypeId, filter.vars[filter.pveKey])
-        elseif mapFilterType == MAP_FILTER_TYPE_AVA_CYRODIIL then
-            self:SetEnabled(pinTypeId, filter.vars[filter.pvpKey])
-        elseif mapFilterType == MAP_FILTER_TYPE_AVA_IMPERIAL then
-            self:SetEnabled(pinTypeId, filter.vars[filter.imperialPvPKey])
-        elseif mapFilterType == MAP_FILTER_TYPE_BATTLEGROUND then
-            self:SetEnabled(pinTypeId, filter.vars[filter.battlegroundKey])
-        end
-    else
-        ZO_CheckButton_SetToggleFunction(filter.pve,
-            function(button, state)
-                self:SetEnabled(pinTypeId, state)
-            end)
-        ZO_CheckButton_SetCheckState(filter.pve, self:IsEnabled(pinTypeId))
-        ZO_CheckButton_SetToggleFunction(filter.pvp,
-            function(button, state)
-                self:SetEnabled(pinTypeId, state)
-            end)
-        ZO_CheckButton_SetCheckState(filter.pvp, self:IsEnabled(pinTypeId))
-        ZO_CheckButton_SetToggleFunction(filter.imperialPvP,
-            function(button, state)
-                self:SetEnabled(pinTypeId, state)
-            end)
-        ZO_CheckButton_SetCheckState(filter.imperialPvP, self:IsEnabled(pinTypeId))
+        ZO_CheckButton_SetCheckState(checkbox, initialStates[key])
     end
+
+    local mapFilters = WORLD_MAP_FILTERS
+
+    filter.pve = AddCheckbox(mapFilters.pvePanel, pinCheckboxText)
+    filter.pvp = AddCheckbox(mapFilters.pvpPanel, pinCheckboxText)
+    filter.imperialPvP = AddCheckbox(mapFilters.imperialPvPPanel, pinCheckboxText)
+    filter.battleground = AddCheckbox(mapFilters.battlegroundPanel, pinCheckboxText)
+
+    SetupCheckbox(filter.pve, filter.pveKey)
+    SetupCheckbox(filter.pvp, filter.pvpKey)
+    SetupCheckbox(filter.imperialPvP, filter.imperialPvPKey)
+    SetupCheckbox(filter.battleground, filter.battlegroundKey)
+
+    local mapFilterType = GetMapFilterType()
+    if mapFilterType == MAP_FILTER_TYPE_STANDARD then
+        self:SetEnabled(pinTypeId, initialStates[filter.pveKey])
+    elseif mapFilterType == MAP_FILTER_TYPE_AVA_CYRODIIL then
+        self:SetEnabled(pinTypeId, initialStates[filter.pvpKey])
+    elseif mapFilterType == MAP_FILTER_TYPE_AVA_IMPERIAL then
+        self:SetEnabled(pinTypeId, initialStates[filter.imperialPvPKey])
+    elseif mapFilterType == MAP_FILTER_TYPE_BATTLEGROUND then
+        self:SetEnabled(pinTypeId, initialStates[filter.battlegroundKey])
+    elseif mapFilterType == MAP_FILTER_TYPE_GLOBAL then
+        return -- SILENT EXIT
+    end
+
+    -- Gamepad
+
+    local function GamepadToggleFunction(data)
+        data.currentValue = not data.currentValue
+        WorldMapFilterPanel_Gamepad:SetPinFilter(pinTypeId, data.currentValue)
+        WorldMapFilterPanel_Gamepad:BuildControls()
+        SCREEN_NARRATION_MANAGER:QueueParametricListEntry(WorldMapFilterPanel_Gamepad.list)
+    end
+
+    local info = {
+        name = pinTypeString,
+        onSelect = GamepadToggleFunction,
+        mapPinGroup = pinTypeId,
+        refreshFunction = function() return end, -- handled in RefreshPins
+        showSelectButton = true,
+        narrationText = function(entryData, entryControl)
+            return ZO_FormatToggleNarrationText(entryData.text, entryData.currentValue)
+        end,
+    }
+
+    local function AddGamepadCheckbox(key)
+        local checkBox = ZO_GamepadEntryData:New(info.name)
+        checkBox:SetDataSource(info)
+        checkBox.currentValue = initialStates[key]
+        return checkBox
+    end
+
+    filter.gamepad = {}
+    filter.gamepad.pve = AddGamepadCheckbox(filter.pveKey)
+    filter.gamepad.pvp = AddGamepadCheckbox(filter.pvpKey)
+    filter.gamepad.imperialPvP = AddGamepadCheckbox(filter.imperialPvPKey)
+    filter.gamepad.battleground = AddGamepadCheckbox(filter.battlegroundKey)
+
+    WorldMapFilterPanel_Gamepad.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.pve)
+    WorldMapFilterPanel_Gamepad.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.pvp)
+    WorldMapFilterPanel_Gamepad.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.imperialPvP)
+    WorldMapFilterPanel_Gamepad.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.battleground)
 
     return filter.pve, filter.pvp, filter.imperialPvP, filter.battleground
 end
@@ -622,21 +649,21 @@ end
 function lib:SetPinFilterHidden(pinType, context, hidden)
     local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
 
-	if pinTypeId and self.filters[pinTypeId] then
-		local control = self.filters[pinTypeId][context]
-		if control and control:IsControlHidden() ~= hidden then
-			control:SetHidden(hidden)
-			local _, point, relativeTo, relativePoint, offsetX, offsetY, restrain = control:GetAnchor(0)
-			if hidden then
-				control.oldOffsetY = offsetY
-				offsetY = control:GetHeight() * -1
-			else
-				offsetY = control.oldOffsetY
-			end
-			control:ClearAnchors()
-			control:SetAnchor(point, relativeTo, relativePoint, offsetX, offsetY, restrain)
-		end
-	end
+    if pinTypeId and self.filters[pinTypeId] then
+        local control = self.filters[pinTypeId][context]
+        if control and control:IsControlHidden() ~= hidden then
+            control:SetHidden(hidden)
+            local _, point, relativeTo, relativePoint, offsetX, offsetY, restrain = control:GetAnchor(0)
+            if hidden then
+                control.oldOffsetY = offsetY
+                offsetY = control:GetHeight() * -1
+            else
+                offsetY = control.oldOffsetY
+            end
+            control:ClearAnchors()
+            control:SetAnchor(point, relativeTo, relativePoint, offsetX, offsetY, restrain)
+        end
+    end
 end
 
 -------------------------------------------------------------------------------
