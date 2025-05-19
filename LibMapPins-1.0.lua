@@ -178,6 +178,13 @@ function lib:AddPinType(pinTypeString, pinTypeAddCallback, pinTypeOnResizeCallba
     return pinTypeId
 end
 
+SLASH_COMMANDS["/pinlist"] = function()
+    local customPins = lib.pinManager.customPins
+    for pinId, pinLayout in pairs(customPins) do
+        df("pinId: %d - pinName: %s", pinId, pinLayout.pinTypeString)
+    end
+end
+
 -------------------------------------------------------------------------------
 -- lib:CreatePin(pinType, pinTag, locX, locY, areaRadius)
 -------------------------------------------------------------------------------
@@ -522,22 +529,36 @@ end
 function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVarsPveKey, savedVarsPvpKey, savedVarsImperialPvpKey, savedVarsBattlegroundKey)
     local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
 
+    mapFiltersGamepad = GAMEPAD_WORLD_MAP_FILTERS
+    mapFilters = WORLD_MAP_FILTERS
+
     if pinTypeId == nil or self.filters[pinTypeId] then return end
+    if pinTypeId == nil or self.filtersGamepad[pinTypeId] then return end
 
     self.filters[pinTypeId] = {}
+    self.filtersGamepad[pinTypeId] = {}
     local filter = self.filters[pinTypeId]
+    local filterGamepad = self.filtersGamepad[pinTypeId]
 
     if type(savedVars) == "table" then
         filter.vars = savedVars
+        filterGamepad.vars = savedVars
         filter.pveKey = savedVarsPveKey or pinTypeString
+        filterGamepad.pveKey = savedVarsPveKey or pinTypeString
         if separate then
             filter.pvpKey = savedVarsPvpKey or pinTypeString .. "_pvp"
+            filterGamepad.pvpKey = savedVarsPvpKey or pinTypeString .. "_pvp"
             filter.imperialPvPKey = savedVarsImperialPvpKey or pinTypeString .. "_imperialPvP"
+            filterGamepad.imperialPvPKey = savedVarsImperialPvpKey or pinTypeString .. "_imperialPvP"
             filter.battlegroundKey = savedVarsBattlegroundKey or pinTypeString .. "_battleground"
+            filterGamepad.battlegroundKey = savedVarsBattlegroundKey or pinTypeString .. "_battleground"
         else
             filter.pvpKey = filter.pveKey
+            filterGamepad.pvpKey = filter.pveKey
             filter.imperialPvPKey = filter.pveKey
+            filterGamepad.imperialPvPKey = filter.pveKey
             filter.battlegroundKey = filter.pveKey
+            filterGamepad.battlegroundKey = filter.pveKey
         end
     end
 
@@ -552,10 +573,26 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
         return checkbox
     end
 
+    local function AddCheckboxGamepad(panel, pinCheckboxText)
+      --[[ self:AddPinFilterComboBox(
+        MAP_FILTER_TRANSIT_LINES_ALLIANCE,
+        ZO_WorldMap_RefreshKeepNetwork,
+        GetString(SI_WORLD_MAP_FILTERS_SHOW_ALLIANCE),
+        "SI_MAPTRANSITLINEALLIANCE",
+        MAP_TRANSIT_LINE_ALLIANCE_ALL,
+        MAP_TRANSIT_LINE_ALLIANCE_MINE
+      )]]--
+    end
+
     filter.pve = AddCheckbox(WORLD_MAP_FILTERS.pvePanel, pinCheckboxText)
     filter.pvp = AddCheckbox(WORLD_MAP_FILTERS.pvpPanel, pinCheckboxText)
     filter.imperialPvP = AddCheckbox(WORLD_MAP_FILTERS.imperialPvPPanel, pinCheckboxText)
     filter.battleground = AddCheckbox(WORLD_MAP_FILTERS.battlegroundPanel, pinCheckboxText)
+
+    filterGamepad.pve = AddCheckboxGamepad(WORLD_MAP_FILTERS.pvePanel, pinCheckboxText)
+    filterGamepad.pvp = AddCheckboxGamepad(WORLD_MAP_FILTERS.pvpPanel, pinCheckboxText)
+    filterGamepad.imperialPvP = AddCheckboxGamepad(WORLD_MAP_FILTERS.imperialPvPPanel, pinCheckboxText)
+    filterGamepad.battleground = AddCheckboxGamepad(WORLD_MAP_FILTERS.battlegroundPanel, pinCheckboxText)
 
     if filter.vars ~= nil then
         ZO_CheckButton_SetToggleFunction(filter.pve,
