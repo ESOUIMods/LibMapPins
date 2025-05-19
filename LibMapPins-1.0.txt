@@ -1,9 +1,9 @@
-## Title: |c89cff0LibMapPins|r |cff9b151.0 r40|r
-## Version: 1.0.40
-## AddOnVersion: 10040
+## Title: |c89cff0LibMapPins|r |cff9b151.0 r41|r
+## Version: 1.0.41
+## AddOnVersion: 10041
 ## Author: Garkin
 ## Contributors: Sensi, Assembler Maniac, Sharlikran, Scootworks
-## APIVersion: 101043 101044
+## APIVersion: 101044 101045
 ## IsLibrary: true
 
 LibMapPins-1.0.lua

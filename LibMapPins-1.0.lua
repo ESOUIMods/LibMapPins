@@ -29,7 +29,7 @@
 local lib = {}
 
 lib.name = "LibMapPins-1.0"
-lib.version = 10040
+lib.version = 10041
 lib.filters = {}
 lib.pinManager = ZO_WorldMap_GetPinManager()
 
@@ -709,6 +709,8 @@ function lib.OnMapChanged()
         context = "imperialPvP"
     elseif mapFilterType == MAP_FILTER_TYPE_BATTLEGROUND then
         context = "battleground"
+    elseif mapFilterType == MAP_FILTER_TYPE_GLOBAL then
+        return
     end
 
     if lib.context ~= context then
