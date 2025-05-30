@@ -33,6 +33,15 @@ lib.version = 10041
 lib.filters = {}
 lib.pinManager = ZO_WorldMap_GetPinManager()
 
+do
+
+    LibMapPins_PvE_MapFilterPanel_Gamepad = ZO_Object.MultiSubclass(ZO_WorldMapFilterPanel_Shared)
+
+    function LibMapPins_PvE_MapFilterPanel_Gamepad:Initialize(...)
+        ZO_WorldMapFilterPanel_Shared.Initialize(self, ...)
+    end
+end
+
 local function GetPinTypeId(pinType)
     local pinTypeId
     if type(pinType) == "string" then
@@ -596,43 +605,91 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
         return -- SILENT EXIT
     end
 
-    -- Gamepad
-
-    local function GamepadToggleFunction(data)
-        data.currentValue = not data.currentValue
-        WorldMapFilterPanel_Gamepad:SetPinFilter(pinTypeId, data.currentValue)
-        WorldMapFilterPanel_Gamepad:BuildControls()
-        SCREEN_NARRATION_MANAGER:QueueParametricListEntry(WorldMapFilterPanel_Gamepad.list)
+    local stringId = "SI_MAPFILTER" .. tostring(pinTypeId)
+    if not _G[stringId] then
+        ZO_CreateStringId(stringId, pinCheckboxText)
+        SafeAddVersion(stringId, 1)
     end
 
-    local info = {
-        name = pinTypeString,
-        onSelect = GamepadToggleFunction,
-        mapPinGroup = pinTypeId,
-        refreshFunction = function() return end, -- handled in RefreshPins
-        showSelectButton = true,
-        narrationText = function(entryData, entryControl)
-            return ZO_FormatToggleNarrationText(entryData.text, entryData.currentValue)
-        end,
+    -- Gamepad
+
+    LibMapPins_MapFilterPanel_Gamepad.AddPinFilterCheckBox(pinTypeId)
+
+    --[[
+
+    local mapFiltersGamepad = GAMEPAD_WORLD_MAP_FILTERS
+
+    local panelKey = {
+        ["ZO_WorldMapFilters_GamepadMainPvE"] = "pve",
+        ["ZO_WorldMapFilters_GamepadMainPvP"] = "pvp",
+        ["ZO_WorldMapFilters_GamepadMainImperialPvP"] = "imperialPvP",
+        ["ZO_WorldMapFilters_GamepadMainBattleground"] = "battleground",
     }
 
-    local function AddGamepadCheckbox(key)
-        local checkBox = ZO_GamepadEntryData:New(info.name)
-        checkBox:SetDataSource(info)
-        checkBox.currentValue = initialStates[key]
-        return checkBox
+    local controlNames = {
+        ["ZO_WorldMapFilters_GamepadMainPvE"] = "PvE",
+        ["ZO_WorldMapFilters_GamepadMainPvP"] = "PvP",
+        ["ZO_WorldMapFilters_GamepadMainImperialPvP"] = "ImperialPvP",
+        ["ZO_WorldMapFilters_GamepadMainBattleground"] = "Battleground",
+    }
+
+    local panelNames = {
+        ["ZO_WorldMapFilters_GamepadMainPvE"] = "pvePanel",
+        ["ZO_WorldMapFilters_GamepadMainPvP"] = "pvePanel",
+        ["ZO_WorldMapFilters_GamepadMainImperialPvP"] = "imperialPvPPanel",
+        ["ZO_WorldMapFilters_GamepadMainBattleground"] = "battlegroundPanel",
+    }
+
+    local currentPanel = GAMEPAD_WORLD_MAP_FILTERS.currentPanel.control
+    LibMapPins.a_test = currentPanel
+    d(LibMapPins.a_test:GetName())
+    local currentKey = panelKey[currentPanel:GetName()]
+    local currentControlKey = controlNames[currentPanel:GetName()]
+    local currentKeyControl = currentPanel:GetParent():GetNamedChild(currentControlKey)
+    d(currentKey)
+    d(currentKeyControl)
+    local panelName = panelNames[currentPanel:GetName()]
+    LibMapPins.aa_test = GAMEPAD_WORLD_MAP_FILTERS[panelName].list
+    LibMapPins.aaa_test = LibMapPins.aa_test and LibMapPins.aa_test.AddEntry ~= nil
+    LibMapPins.aaaa_test = mapFiltersGamepad.pvePanel.list.AddEntry ~= nil
+
+    -- TODO make a helper function GetCurrentMapFilterPanelKey()
+
+    local function GamepadToggleFunction(mapPinGroup, data)
+        data.currentValue = not data.currentValue
+        self:SetEnabled(pinTypeId, data.currentValue)
+        GAMEPAD_WORLD_MAP_FILTERS[GetCurrentMapFilterPanelKey()].list:BuildControls()
+        SCREEN_NARRATION_MANAGER:QueueParametricListEntry(GAMEPAD_WORLD_MAP_FILTERS[GetCurrentMapFilterPanelKey()].list)
+    end
+
+    local function MakeGamepadEntry(name, key)
+        local entry = ZO_GamepadEntryData:New(name)
+        entry:SetDataSource({
+            name = name,
+            onSelect = GamepadToggleFunction,
+            mapPinGroup = pinTypeId,
+            refreshFunction = function() return end,
+            showSelectButton = true,
+            narrationText = function(entryData, entryControl)
+                return ZO_FormatToggleNarrationText(entryData.text, entryData.currentValue)
+            end,
+        })
+        entry.currentValue = initialStates[key]
+        return entry
     end
 
     filter.gamepad = {}
-    filter.gamepad.pve = AddGamepadCheckbox(filter.pveKey)
-    filter.gamepad.pvp = AddGamepadCheckbox(filter.pvpKey)
-    filter.gamepad.imperialPvP = AddGamepadCheckbox(filter.imperialPvPKey)
-    filter.gamepad.battleground = AddGamepadCheckbox(filter.battlegroundKey)
+    filter.gamepad.pve = MakeGamepadEntry(pinTypeString, filter.pveKey)
+    filter.gamepad.pvp = MakeGamepadEntry(pinTypeString, filter.pvpKey)
+    filter.gamepad.imperialPvP = MakeGamepadEntry(pinTypeString, filter.imperialPvPKey)
+    filter.gamepad.battleground = MakeGamepadEntry(pinTypeString, filter.battlegroundKey)
 
-    WorldMapFilterPanel_Gamepad.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.pve)
-    WorldMapFilterPanel_Gamepad.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.pvp)
-    WorldMapFilterPanel_Gamepad.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.imperialPvP)
-    WorldMapFilterPanel_Gamepad.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.battleground)
+    mapFiltersGamepad.pvePanel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.pve)
+    mapFiltersGamepad.pvpPanel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.pvp)
+    mapFiltersGamepad.imperialPvPPanel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.imperialPvP)
+    mapFiltersGamepad.battlegroundPanel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.battleground)
+
+    ]]--
 
     return filter.pve, filter.pvp, filter.imperialPvP, filter.battleground
 end
@@ -896,6 +953,7 @@ local function OnLoad(code, addon)
     if ZO_WorldMapFiltersBattlegroundContainer then
         ZO_WorldMapFiltersBattlegroundContainer:SetAnchorFill()
     end
+    CALLBACK_MANAGER:FireCallbacks("WorldMapReady")
 end
 EVENT_MANAGER:RegisterForEvent(lib.name, EVENT_ADD_ON_LOADED, OnLoad)
 
@@ -935,5 +993,18 @@ SLASH_COMMANDS["/lmppins"] = function()
         df("pinId: %d - pinName: %s", pinId, pinLayout.pinTypeString)
     end
 end
+
+CALLBACK_MANAGER:RegisterCallback("WorldMapReady", function()
+    local currentPanel = GAMEPAD_WORLD_MAP_FILTERS.currentPanel
+    if currentPanel then
+        local currentPanelClass = getmetatable(currentPanel).__index
+        -- Now you can subclass or reference WorldMapFilterPanel_Gamepad behavior
+        LibMapPins_MapFilterPanel_Gamepad = ZO_Object.MultiSubclass(currentPanelClass)
+
+        function LibMapPins_MapFilterPanel_Gamepad:Initialize(...)
+            currentPanelClass.Initialize(self, ...)
+        end
+    end
+end)
 
 LibMapPins = lib
