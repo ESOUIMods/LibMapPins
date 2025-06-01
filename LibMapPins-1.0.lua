@@ -33,15 +33,6 @@ lib.version = 10041
 lib.filters = {}
 lib.pinManager = ZO_WorldMap_GetPinManager()
 
-do
-
-    LibMapPins_PvE_MapFilterPanel_Gamepad = ZO_Object.MultiSubclass(ZO_WorldMapFilterPanel_Shared)
-
-    function LibMapPins_PvE_MapFilterPanel_Gamepad:Initialize(...)
-        ZO_WorldMapFilterPanel_Shared.Initialize(self, ...)
-    end
-end
-
 local function GetPinTypeId(pinType)
     local pinTypeId
     if type(pinType) == "string" then
@@ -613,83 +604,47 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
 
     -- Gamepad
 
-    LibMapPins_MapFilterPanel_Gamepad.AddPinFilterCheckBox(pinTypeId)
+    local function GetCurrentGamepadMapFilterPanel()
+        return GAMEPAD_WORLD_MAP_FILTERS and GAMEPAD_WORLD_MAP_FILTERS.currentPanel
+    end
 
-    --[[
-
-    local mapFiltersGamepad = GAMEPAD_WORLD_MAP_FILTERS
-
-    local panelKey = {
-        ["ZO_WorldMapFilters_GamepadMainPvE"] = "pve",
-        ["ZO_WorldMapFilters_GamepadMainPvP"] = "pvp",
-        ["ZO_WorldMapFilters_GamepadMainImperialPvP"] = "imperialPvP",
-        ["ZO_WorldMapFilters_GamepadMainBattleground"] = "battleground",
-    }
-
-    local controlNames = {
-        ["ZO_WorldMapFilters_GamepadMainPvE"] = "PvE",
-        ["ZO_WorldMapFilters_GamepadMainPvP"] = "PvP",
-        ["ZO_WorldMapFilters_GamepadMainImperialPvP"] = "ImperialPvP",
-        ["ZO_WorldMapFilters_GamepadMainBattleground"] = "Battleground",
-    }
-
-    local panelNames = {
-        ["ZO_WorldMapFilters_GamepadMainPvE"] = "pvePanel",
-        ["ZO_WorldMapFilters_GamepadMainPvP"] = "pvePanel",
-        ["ZO_WorldMapFilters_GamepadMainImperialPvP"] = "imperialPvPPanel",
-        ["ZO_WorldMapFilters_GamepadMainBattleground"] = "battlegroundPanel",
-    }
-
-    local currentPanel = GAMEPAD_WORLD_MAP_FILTERS.currentPanel.control
-    LibMapPins.a_test = currentPanel
-    d(LibMapPins.a_test:GetName())
-    local currentKey = panelKey[currentPanel:GetName()]
-    local currentControlKey = controlNames[currentPanel:GetName()]
-    local currentKeyControl = currentPanel:GetParent():GetNamedChild(currentControlKey)
-    d(currentKey)
-    d(currentKeyControl)
-    local panelName = panelNames[currentPanel:GetName()]
-    LibMapPins.aa_test = GAMEPAD_WORLD_MAP_FILTERS[panelName].list
-    LibMapPins.aaa_test = LibMapPins.aa_test and LibMapPins.aa_test.AddEntry ~= nil
-    LibMapPins.aaaa_test = mapFiltersGamepad.pvePanel.list.AddEntry ~= nil
-
-    -- TODO make a helper function GetCurrentMapFilterPanelKey()
-
-    local function GamepadToggleFunction(mapPinGroup, data)
+    local function GamepadToggleFunction(data)
+        local currentPanel = GetCurrentGamepadMapFilterPanel()
+        if not currentPanel or not currentPanel.list then return end
         data.currentValue = not data.currentValue
-        self:SetEnabled(pinTypeId, data.currentValue)
-        GAMEPAD_WORLD_MAP_FILTERS[GetCurrentMapFilterPanelKey()].list:BuildControls()
-        SCREEN_NARRATION_MANAGER:QueueParametricListEntry(GAMEPAD_WORLD_MAP_FILTERS[GetCurrentMapFilterPanelKey()].list)
+        currentPanel:SetPinFilter(data.mapPinGroup, data.currentValue)
+        currentPanel:BuildControls()
+        SCREEN_NARRATION_MANAGER:QueueParametricListEntry(currentPanel.list)
     end
 
-    local function MakeGamepadEntry(name, key)
-        local entry = ZO_GamepadEntryData:New(name)
-        entry:SetDataSource({
-            name = name,
-            onSelect = GamepadToggleFunction,
-            mapPinGroup = pinTypeId,
-            refreshFunction = function() return end,
-            showSelectButton = true,
-            narrationText = function(entryData, entryControl)
-                return ZO_FormatToggleNarrationText(entryData.text, entryData.currentValue)
-            end,
-        })
-        entry.currentValue = initialStates[key]
-        return entry
+    local info = {
+        name = pinCheckboxText,
+        onSelect = GamepadToggleFunction,
+        mapPinGroup = pinTypeId,
+        showSelectButton = true,
+        narrationText = function(entryData, entryControl)
+            return ZO_FormatToggleNarrationText(entryData.text, entryData.currentValue)
+        end,
+    }
+
+    local panelToKeyField = {
+        [LibMapPins_PvE_MapFilterPanel_Gamepad] = "pveKey",
+        [LibMapPins_PvP_MapFilterPanel_Gamepad] = "pvpKey",
+        [LibMapPins_ImperialPvP_MapFilterPanel_Gamepad] = "imperialPvPKey",
+        [LibMapPins_Battleground_MapFilterPanel_Gamepad] = "battlegroundKey",
+    }
+
+    for panel, keyField in pairs(panelToKeyField) do
+        local savedKey = filter[keyField]
+        local isChecked = (filter.vars and filter.vars[savedKey]) or self:IsEnabled(pinTypeId)
+
+        local checkBox = ZO_GamepadEntryData:New(info.name)
+        checkBox:SetDataSource(info)
+        checkBox.currentValue = isChecked
+
+        table.insert(panel.pinFilterCheckBoxes, checkBox)
+        panel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", checkBox)
     end
-
-    filter.gamepad = {}
-    filter.gamepad.pve = MakeGamepadEntry(pinTypeString, filter.pveKey)
-    filter.gamepad.pvp = MakeGamepadEntry(pinTypeString, filter.pvpKey)
-    filter.gamepad.imperialPvP = MakeGamepadEntry(pinTypeString, filter.imperialPvPKey)
-    filter.gamepad.battleground = MakeGamepadEntry(pinTypeString, filter.battlegroundKey)
-
-    mapFiltersGamepad.pvePanel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.pve)
-    mapFiltersGamepad.pvpPanel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.pvp)
-    mapFiltersGamepad.imperialPvPPanel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.imperialPvP)
-    mapFiltersGamepad.battlegroundPanel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", filter.gamepad.battleground)
-
-    ]]--
 
     return filter.pve, filter.pvp, filter.imperialPvP, filter.battleground
 end
@@ -841,6 +796,7 @@ end)
 local function OnLoad(code, addon)
     if addon:find("^ZO") then return end
     EVENT_MANAGER:UnregisterForEvent(lib.name, EVENT_ADD_ON_LOADED)
+    CALLBACK_MANAGER:FireCallbacks("WorldMapFiltersReady")
 
     if WORLD_MAP_FILTERS.pvePanel.checkBoxPool then
         WORLD_MAP_FILTERS.pvePanel.checkBoxPool.parent = ZO_WorldMapFiltersPvEContainerScrollChild or WINDOW_MANAGER:CreateControlFromVirtual("ZO_WorldMapFiltersPvEContainer", ZO_WorldMapFiltersPvE, "ZO_ScrollContainer"):GetNamedChild("ScrollChild")
@@ -953,7 +909,6 @@ local function OnLoad(code, addon)
     if ZO_WorldMapFiltersBattlegroundContainer then
         ZO_WorldMapFiltersBattlegroundContainer:SetAnchorFill()
     end
-    CALLBACK_MANAGER:FireCallbacks("WorldMapReady")
 end
 EVENT_MANAGER:RegisterForEvent(lib.name, EVENT_ADD_ON_LOADED, OnLoad)
 
@@ -994,17 +949,181 @@ SLASH_COMMANDS["/lmppins"] = function()
     end
 end
 
-CALLBACK_MANAGER:RegisterCallback("WorldMapReady", function()
-    local currentPanel = GAMEPAD_WORLD_MAP_FILTERS.currentPanel
-    if currentPanel then
-        local currentPanelClass = getmetatable(currentPanel).__index
-        -- Now you can subclass or reference WorldMapFilterPanel_Gamepad behavior
-        LibMapPins_MapFilterPanel_Gamepad = ZO_Object.MultiSubclass(currentPanelClass)
+SLASH_COMMANDS["/pinlist"] = function()
+    local customPins = lib.pinManager.customPins
+    for pinId, pinLayout in pairs(customPins) do
+        df("pinId: %d - pinName: %s", pinId, pinLayout.pinTypeString)
+    end
+end
 
-        function LibMapPins_MapFilterPanel_Gamepad:Initialize(...)
-            currentPanelClass.Initialize(self, ...)
+CALLBACK_MANAGER:RegisterCallback("WorldMapFiltersReady", function()
+    LibMapPins_PinManager = ZO_WorldMap_GetPinManager()
+
+    local mapFilters = WORLD_MAP_FILTERS
+    LibMapPins_PvE_MapFilterPanel = mapFilters.pvePanel
+    LibMapPins_PvP_MapFilterPanel = mapFilters.pvpPanel
+    LibMapPins_ImperialPvP_MapFilterPanel = mapFilters.imperialPvPPanel
+    LibMapPins_Battleground_MapFilterPanel = mapFilters.battlegroundPanel
+
+    local mapFiltersGamepad = GAMEPAD_WORLD_MAP_FILTERS
+    LibMapPins_PvE_MapFilterPanel_Gamepad = mapFiltersGamepad.pvePanel
+    LibMapPins_PvP_MapFilterPanel_Gamepad = mapFiltersGamepad.pvpPanel
+    LibMapPins_ImperialPvP_MapFilterPanel_Gamepad = mapFiltersGamepad.imperialPvPPanel
+    LibMapPins_Battleground_MapFilterPanel_Gamepad = mapFiltersGamepad.battlegroundPanel
+
+    -- Utility to safely assign list if the control exists
+    local function InjectGamepadList(panel)
+        if panel and panel.control and not panel.list then
+            local listControl = panel.control:GetNamedChild("List")
+            if listControl then
+                panel.list = ZO_GamepadVerticalParametricScrollList:New(listControl)
+                panel.list:SetAlignToScreenCenter(true)
+                panel.list:SetOnSelectedDataChangedCallback(function()
+                    if GAMEPAD_WORLD_MAP_FILTERS.SelectKeybind then
+                        GAMEPAD_WORLD_MAP_FILTERS:SelectKeybind()
+                    end
+                end)
+                panel.list:AddDataTemplate("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", ZO_GamepadCheckboxOptionTemplate_Setup, ZO_GamepadMenuEntryTemplateParametricListFunction)
+                panel.list:AddDataTemplateWithHeader("ZO_GamepadWorldMapFilterComboBoxTemplate", function(...) panel:SetupDropDown(...) end, ZO_GamepadMenuEntryTemplateParametricListFunction, nil, "ZO_GamepadMenuEntryHeaderTemplate")
+            end
         end
     end
+
+    -- Inject list access into each Gamepad panel
+    InjectGamepadList(LibMapPins_PvE_MapFilterPanel_Gamepad)
+    InjectGamepadList(LibMapPins_PvP_MapFilterPanel_Gamepad)
+    InjectGamepadList(LibMapPins_ImperialPvP_MapFilterPanel_Gamepad)
+    InjectGamepadList(LibMapPins_Battleground_MapFilterPanel_Gamepad)
 end)
+
+
+------------------------------
+---       Debugging        ---
+------------------------------
+
+lib.show_log = true
+lib.loggerName = 'LibMapPins'
+
+if LibDebugLogger then
+    lib.logger = LibDebugLogger.Create(lib.loggerName)
+end
+
+local logger = lib.logger ~= nil
+local viewer = DebugLogViewer ~= nil
+
+local function create_log(log_type, log_content)
+    if not viewer and log_type == "Info" then
+        CHAT_ROUTER:AddSystemMessage(log_content)
+        return
+    end
+    if logger and log_type == "Info" then
+        lib.logger:Info(log_content)
+    end
+    if not lib.show_log then return end
+    if logger and log_type == "Debug" then
+        lib.logger:Debug(log_content)
+    end
+    if logger and log_type == "Verbose" then
+        lib.logger:Verbose(log_content)
+    end
+    if logger and log_type == "Warn" then
+        lib.logger:Warn(log_content)
+    end
+end
+
+local function emit_message(log_type, text)
+    if text == "" then
+        text = "[Empty String]"
+    end
+    create_log(log_type, text)
+end
+
+local function emit_table(log_type, t, indent, table_history)
+    indent = indent or "."
+    table_history = table_history or {}
+
+    if not t then
+        emit_message(log_type, indent .. "[Nil Table]")
+        return
+    end
+
+    if next(t) == nil then
+        emit_message(log_type, indent .. "[Empty Table]")
+        return
+    end
+
+    for k, v in pairs(t) do
+        local vType = type(v)
+        emit_message(log_type, indent .. "(" .. vType .. "): " .. tostring(k) .. " = " .. tostring(v))
+        if vType == "table" then
+            if table_history[v] then
+                emit_message(log_type, indent .. "Avoiding cycle on table...")
+            else
+                table_history[v] = true
+                emit_table(log_type, v, indent .. "  ", table_history)
+            end
+        end
+    end
+end
+
+local function emit_userdata(log_type, udata)
+    local function_limit = 5
+    local total_limit = 10
+    local function_count = 0
+    local entry_count = 0
+
+    emit_message(log_type, "Userdata: " .. tostring(udata))
+
+    local meta = getmetatable(udata)
+    if meta and meta.__index then
+        for k, v in pairs(meta.__index) do
+            if type(v) == "function" then
+                if function_count < function_limit then
+                    emit_message(log_type, "  Function: " .. tostring(k))
+                    function_count = function_count + 1
+                    entry_count = entry_count + 1
+                end
+            else
+                emit_message(log_type, "  " .. tostring(k) .. ": " .. tostring(v))
+                entry_count = entry_count + 1
+            end
+
+            if entry_count >= total_limit then
+                emit_message(log_type, "  ... (output truncated due to limit)")
+                break
+            end
+        end
+    else
+        emit_message(log_type, "  (No detailed metadata available)")
+    end
+end
+
+local function contains_placeholders(str)
+    return type(str) == "string" and str:find("<<%d+>>")
+end
+
+function lib:dm(log_type, ...)
+    if not lib.show_log and log_type ~= "Info" then return end
+
+    local num_args = select("#", ...)
+    local first_arg = select(1, ...)
+
+    if type(first_arg) == "string" and contains_placeholders(first_arg) then
+        local remaining_args = { select(2, ...) }
+        local formatted_value = ZO_CachedStrFormat(first_arg, unpack(remaining_args))
+        emit_message(log_type, formatted_value)
+    else
+        for i = 1, num_args do
+            local value = select(i, ...)
+            if type(value) == "userdata" then
+                emit_userdata(log_type, value)
+            elseif type(value) == "table" then
+                emit_table(log_type, value)
+            else
+                emit_message(log_type, tostring(value))
+            end
+        end
+    end
+end
 
 LibMapPins = lib
