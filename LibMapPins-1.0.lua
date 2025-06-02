@@ -32,6 +32,7 @@ lib.name = "LibMapPins-1.0"
 lib.version = 10041
 lib.filters = {}
 lib.pinManager = ZO_WorldMap_GetPinManager()
+local LibMapPins_PanelToKeyField_Gamepad = {}
 
 local function GetPinTypeId(pinType)
     local pinTypeId
@@ -230,6 +231,8 @@ end
 --
 -- pinType:       pinTypeId or pinTypeString
 -- key:           key name in pinLayoutData table
+--
+-- example: LibMapPins:GetLayoutData(244, "tint")
 -------------------------------------------------------------------------------
 function lib:GetLayoutKey(pinType, key)
     if type(key) ~= "string" then return end
@@ -596,12 +599,6 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
         return -- SILENT EXIT
     end
 
-    local stringId = "SI_MAPFILTER" .. tostring(pinTypeId)
-    if not _G[stringId] then
-        ZO_CreateStringId(stringId, pinCheckboxText)
-        SafeAddVersion(stringId, 1)
-    end
-
     -- Gamepad
 
     local function GetCurrentGamepadMapFilterPanel()
@@ -611,8 +608,24 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
     local function GamepadToggleFunction(data)
         local currentPanel = GetCurrentGamepadMapFilterPanel()
         if not currentPanel or not currentPanel.list then return end
+
         data.currentValue = not data.currentValue
-        currentPanel:SetPinFilter(data.mapPinGroup, data.currentValue)
+        -- Also update saved filter value
+        local panelToKeyFields = {
+            [LibMapPins_PvE_MapFilterPanel_Gamepad] = "pveKey",
+            [LibMapPins_PvP_MapFilterPanel_Gamepad] = "pvpKey",
+            [LibMapPins_ImperialPvP_MapFilterPanel_Gamepad] = "imperialPvPKey",
+            [LibMapPins_Battleground_MapFilterPanel_Gamepad] = "battlegroundKey",
+        }
+        local keyField = panelToKeyFields[currentPanel] -- e.g. "pveKey", etc.
+        if keyField then
+            local toggleFilter = self.filters and self.filters[data.mapPinGroup]
+            if toggleFilter and toggleFilter.vars and toggleFilter[keyField] then
+                toggleFilter.vars[toggleFilter[keyField]] = data.currentValue
+            end
+        end
+
+        self:SetEnabled(pinTypeId, data.currentValue)
         currentPanel:BuildControls()
         SCREEN_NARRATION_MANAGER:QueueParametricListEntry(currentPanel.list)
     end
@@ -627,23 +640,16 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
         end,
     }
 
-    local panelToKeyField = {
-        [LibMapPins_PvE_MapFilterPanel_Gamepad] = "pveKey",
-        [LibMapPins_PvP_MapFilterPanel_Gamepad] = "pvpKey",
-        [LibMapPins_ImperialPvP_MapFilterPanel_Gamepad] = "imperialPvPKey",
-        [LibMapPins_Battleground_MapFilterPanel_Gamepad] = "battlegroundKey",
+    local gamepadPanels = {
+        LibMapPins_PvE_MapFilterPanel_Gamepad,
+        LibMapPins_PvP_MapFilterPanel_Gamepad,
+        LibMapPins_ImperialPvP_MapFilterPanel_Gamepad,
+        LibMapPins_Battleground_MapFilterPanel_Gamepad,
     }
 
-    for panel, keyField in pairs(panelToKeyField) do
-        local savedKey = filter[keyField]
-        local isChecked = (filter.vars and filter.vars[savedKey]) or self:IsEnabled(pinTypeId)
-
-        local checkBox = ZO_GamepadEntryData:New(info.name)
-        checkBox:SetDataSource(info)
-        checkBox.currentValue = isChecked
-
-        table.insert(panel.pinFilterCheckBoxes, checkBox)
-        panel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", checkBox)
+    for _, panel in ipairs(gamepadPanels) do
+        panel.customMapFiltersInfo = panel.customMapFiltersInfo or {}
+        table.insert(panel.customMapFiltersInfo, info)
     end
 
     return filter.pve, filter.pvp, filter.imperialPvP, filter.battleground
@@ -909,6 +915,8 @@ local function OnLoad(code, addon)
     if ZO_WorldMapFiltersBattlegroundContainer then
         ZO_WorldMapFiltersBattlegroundContainer:SetAnchorFill()
     end
+
+    CALLBACK_MANAGER:FireCallbacks("PostHooksForWorldMapFilters")
 end
 EVENT_MANAGER:RegisterForEvent(lib.name, EVENT_ADD_ON_LOADED, OnLoad)
 
@@ -973,29 +981,71 @@ CALLBACK_MANAGER:RegisterCallback("WorldMapFiltersReady", function()
 
     -- Utility to safely assign list if the control exists
     local function InjectGamepadList(panel)
-        if panel and panel.control and not panel.list then
-            local listControl = panel.control:GetNamedChild("List")
-            if listControl then
-                panel.list = ZO_GamepadVerticalParametricScrollList:New(listControl)
-                panel.list:SetAlignToScreenCenter(true)
-                panel.list:SetOnSelectedDataChangedCallback(function()
-                    if GAMEPAD_WORLD_MAP_FILTERS.SelectKeybind then
-                        GAMEPAD_WORLD_MAP_FILTERS:SelectKeybind()
-                    end
-                end)
-                panel.list:AddDataTemplate("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", ZO_GamepadCheckboxOptionTemplate_Setup, ZO_GamepadMenuEntryTemplateParametricListFunction)
-                panel.list:AddDataTemplateWithHeader("ZO_GamepadWorldMapFilterComboBoxTemplate", function(...) panel:SetupDropDown(...) end, ZO_GamepadMenuEntryTemplateParametricListFunction, nil, "ZO_GamepadMenuEntryHeaderTemplate")
+        if panel and panel.control then
+            panel.customMapFiltersInfo = panel.customMapFiltersInfo or {}
+            if not panel.list then
+                local listControl = panel.control:GetNamedChild("List")
+                if listControl then
+                    panel.list = ZO_GamepadVerticalParametricScrollList:New(listControl)
+                    panel.list:SetAlignToScreenCenter(true)
+                    panel.list:SetOnSelectedDataChangedCallback(function()
+                        if GAMEPAD_WORLD_MAP_FILTERS.SelectKeybind then
+                            GAMEPAD_WORLD_MAP_FILTERS:SelectKeybind()
+                        end
+                    end)
+                    panel.list:AddDataTemplate("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", ZO_GamepadCheckboxOptionTemplate_Setup, ZO_GamepadMenuEntryTemplateParametricListFunction)
+                    panel.list:AddDataTemplateWithHeader("ZO_GamepadWorldMapFilterComboBoxTemplate", function(...) panel:SetupDropDown(...) end, ZO_GamepadMenuEntryTemplateParametricListFunction, nil, "ZO_GamepadMenuEntryHeaderTemplate")
+                end
             end
         end
     end
 
-    -- Inject list access into each Gamepad panel
-    InjectGamepadList(LibMapPins_PvE_MapFilterPanel_Gamepad)
-    InjectGamepadList(LibMapPins_PvP_MapFilterPanel_Gamepad)
-    InjectGamepadList(LibMapPins_ImperialPvP_MapFilterPanel_Gamepad)
-    InjectGamepadList(LibMapPins_Battleground_MapFilterPanel_Gamepad)
+    local gamepadPanels = {
+        LibMapPins_PvE_MapFilterPanel_Gamepad,
+        LibMapPins_PvP_MapFilterPanel_Gamepad,
+        LibMapPins_ImperialPvP_MapFilterPanel_Gamepad,
+        LibMapPins_Battleground_MapFilterPanel_Gamepad,
+    }
+
+    for _, panel in ipairs(gamepadPanels) do
+        InjectGamepadList(panel)
+        LibMapPins_PanelToKeyField_Gamepad[panel] = {}
+    end
 end)
 
+CALLBACK_MANAGER:RegisterCallback("PostHooksForWorldMapFilters", function()
+    local panelToKeyFields = {
+        [LibMapPins_PvE_MapFilterPanel_Gamepad] = "pveKey",
+        [LibMapPins_PvP_MapFilterPanel_Gamepad] = "pvpKey",
+        [LibMapPins_ImperialPvP_MapFilterPanel_Gamepad] = "imperialPvPKey",
+        [LibMapPins_Battleground_MapFilterPanel_Gamepad] = "battlegroundKey",
+    }
+
+    for panel, keyField in pairs(panelToKeyFields) do
+        ZO_PostHook(panel, "BuildControls", function()
+            local entries = panel.customMapFiltersInfo
+            if entries then
+                for _, info in ipairs(entries) do
+                    local pinTypeId = info.mapPinGroup
+                    local filter = lib.filters and lib.filters[pinTypeId]
+
+                    if filter then
+                        local savedKey = filter[keyField]
+                        local isChecked = (filter.vars and filter.vars[savedKey]) or lib:IsEnabled(pinTypeId)
+
+                        local checkBox = ZO_GamepadEntryData:New(info.name)
+                        checkBox:SetDataSource(info)
+                        checkBox.currentValue = isChecked
+
+                        table.insert(panel.pinFilterCheckBoxes, checkBox)
+                        panel.list:AddEntry("ZO_GamepadWorldMapFilterCheckboxOptionTemplate", checkBox)
+                    end
+                end
+                panel.list:Commit()
+            end
+        end)
+    end
+end)
 
 ------------------------------
 ---       Debugging        ---
