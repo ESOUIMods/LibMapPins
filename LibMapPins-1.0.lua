@@ -29,7 +29,7 @@
 local lib = {}
 
 lib.name = "LibMapPins-1.0"
-lib.version = 10043
+lib.version = 10044
 lib.filters = {}
 lib.mapGroup = "pve"
 lib.pinManager = ZO_WorldMap_GetPinManager()
@@ -38,6 +38,10 @@ LIBMAPPINS_AVA_MAPGROUP = "pvp"
 LIBMAPPINS_AVA_IMPERIAL_MAPGROUP = "imperialPvP"
 LIBMAPPINS_BATTLEGROUND_MAPGROUP = "battleground"
 local LIBMAPPINS_GLOBAL_MAPGROUP = "global"
+
+LIBMAPPINS_PIN_ACTION_GROUP_QUEST = "quest"
+LIBMAPPINS_PIN_ACTION_GROUP_FAST_TRAVEL = "fastTravel"
+LIBMAPPINS_PIN_ACTION_GROUP_RESPAWN = "respawn"
 
 local function GetPinTypeId(pinType)
   local pinTypeId
@@ -117,6 +121,12 @@ end
 --    minAreaSize = used for area pins
 --    showsPinAndArea = true/false
 --    isAnimated = true/false
+--    mouseLevel
+--    framesWide
+--    framesHigh
+--    framesPerSecond
+--    hitInsetX
+--    hitInsetY
 --
 -------------------------------------------------------------------------------
 -- lib:AddPinType(pinTypeString, pinTypeAddCallback, pinTypeOnResizeCallback, pinLayoutData, pinTooltipCreator)
@@ -146,23 +156,36 @@ end
 --                }
 --    hasTooltip = (optional), function(pin) which returns true/false to
 --                enable/disable tooltip.
---    gamepadCategory = (nilable) string
---    gamepadCategoryId = (nilable) number, right now it uses one of:
---                local GAMEPAD_PIN_ORDERS = {
+--    categoryId = (nilable) number, right now it uses one of:
+--                ZO_MapPin.PIN_ORDERS = {
 --                   DESTINATIONS = 10,
---                   AVA_KEEP = 20,
---                   AVA_OUTPOST = 21,
+--                   AVA_KEEP = 19,
+--                   AVA_OUTPOST = 20,
+--                   AVA_TOWN = 21,
 --                   AVA_RESOURCE = 22,
 --                   AVA_GATE = 23,
---                   AVA_ARTIFACT = 24,
---                   AVA_IMPERIAL_CITY = 25,
---                   AVA_FORWARD_CAMP = 26,
+--                   AVA_KILL_LOCATION = 24,
+--                   AVA_ARTIFACT = 25,
+--                   AVA_IMPERIAL_CITY = 26,
+--                   AVA_FORWARD_CAMP = 27,
+--                   AVA_RESTRICTED_LINK = 28,
 --                   CRAFTING = 30,
+--                   SUGGESTIONS = 34,
+--                   SKYSHARDS = 36,
+--                   ANTIQUITIES = 38,
 --                   QUESTS = 40,
+--                   WORLD_EVENT_UNITS = 45,
 --                   PLAYERS = 50,
 --                }
+--    entryName = (nilable) string, such as a Wayshrine name. If function it must return a string.
+--    headerCreator = (nilable) function
+--    gamepadCategory = (nilable) string
 --    gamepadCategoryIcon = (nilable) texture path
---    gamepadEntryName = (nilable) string
+--    gamepadCategoryStyleName = (nilable) string
+--                local mapQuestTitle = {
+--                   fontFace = "$(GAMEPAD_BOLD_FONT)",
+--                   fontSize = "$(GP_34)",
+--                }
 --    gamepadSpacing = (nilable) boolean
 --
 -------------------------------------------------------------------------------
@@ -332,14 +355,14 @@ end
 -- handler = {
 --    {
 --       name        = string or function(pin) end --required
---       gamepadName = string or function(pin) end --required
---       callback    = function(pin) end           --required
 --       show        = function(pin) end, (optional) default is true. Callback function
 --                is called only when show returns true.
+--       callback    = function(pin) end           --required
 --       duplicates  = function(pin1, pin2) end, (optional) default is true.
 --                What happens when mouse click hits more than one pin. If true,
 --                pins are considered to be duplicates and just one callback
 --                function is called.
+--       gamepadName = string or function(pin) end --required
 --    },
 -- }
 -- One handler can have defined more actions, with different conditions in show
@@ -560,9 +583,11 @@ end
 --                is true. If separate is true, savedVars exists but this argument
 --                is nil, state will be stored in savedVars[pinTypeString .. "_battleground"].
 -------------------------------------------------------------------------------
-function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVarsPveKey, savedVarsPvpKey, savedVarsImperialPvpKey, savedVarsBattlegroundKey)
+function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVarsPveKey, savedVarsPvpKey, savedVarsImperialPvpKey, savedVarsBattlegroundKey, onToggleCallback)
   local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
   if pinTypeId == nil or self.filters[pinTypeId] then return end
+
+  self.pinManager.customPins[pinTypeId].hasMapFilter = true
 
   self.filters[pinTypeId] = {}
   local filter = self.filters[pinTypeId]
@@ -602,14 +627,33 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
 
   local function SetupToggleWithSavedVars(checkbox, key)
     ZO_CheckButton_SetToggleFunction(checkbox, function(_, state)
-      if filter.vars then filter.vars[key] = state end
+      local pinData = self.pinManager.customPins[pinTypeId]
+
+      if filter.vars then
+        filter.vars[key] = state
+
+        -- Also update compass pin state if available
+        if pinData and type(pinData.compassPinTypeString) == "string" then
+          filter.vars[pinData.compassPinTypeString] = state
+        end
+      end
+
       self:SetEnabled(pinTypeId, state)
+
+      if pinData and pinData.hasMapFilter and type(pinData.onToggleCallback) == "function" then
+        pinData.onToggleCallback(pinData.compassPinTypeString, state)
+      end
     end)
   end
 
   local function SetupToggleWithoutSavedVars(checkbox, key)
     ZO_CheckButton_SetToggleFunction(checkbox, function(_, state)
       self:SetEnabled(pinTypeId, state)
+
+      local pinData = self.pinManager.customPins[pinTypeId]
+      if pinData and pinData.hasMapFilter and type(pinData.onToggleCallback) == "function" then
+        pinData.onToggleCallback(pinData.compassPinTypeString, state)
+      end
     end)
   end
 
@@ -649,19 +693,28 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
     local currentPanel = GetCurrentGamepadMapFilterPanel()
     if not currentPanel or not currentPanel.list then return end
 
+    local pinData = self.pinManager.customPins[data.mapPinGroup]
+
     data.currentValue = not data.currentValue
-    -- Also update saved filter value
-    local keyField = lib.panelToKeyFields_Gamepad[currentPanel] .. "Key" -- e.g. "pveKey", etc.
+    local keyField = lib.panelToKeyFields_Gamepad[currentPanel] .. "Key"
     if keyField then
       local toggleFilter = lib.filters and lib.filters[data.mapPinGroup]
       if toggleFilter and toggleFilter.vars and toggleFilter[keyField] then
         toggleFilter.vars[toggleFilter[keyField]] = data.currentValue
+
+        if pinData and type(pinData.compassPinTypeString) == "string" then
+          toggleFilter.vars[pinData.compassPinTypeString] = data.currentValue
+        end
       end
     end
 
     currentPanel:SetPinFilter(data.mapPinGroup, data.currentValue)
     currentPanel:BuildControls()
     SCREEN_NARRATION_MANAGER:QueueParametricListEntry(currentPanel.list)
+
+    if pinData and pinData.hasMapFilter and type(pinData.onToggleCallback) == "function" then
+      pinData.onToggleCallback(pinData.compassPinTypeString, data.currentValue)
+    end
   end
 
   local info = {
@@ -1054,7 +1107,7 @@ end)
 ---       Debugging        ---
 ------------------------------
 
-lib.show_log = false
+lib.show_log = true
 lib.loggerName = 'LibMapPins'
 
 if LibDebugLogger then
