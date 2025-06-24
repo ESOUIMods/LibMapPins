@@ -29,10 +29,14 @@
 local lib = {}
 
 lib.name = "LibMapPins-1.0"
-lib.version = 10041
+lib.version = 10043
 lib.filters = {}
 lib.mapGroup = "pve"
 lib.pinManager = ZO_WorldMap_GetPinManager()
+LIBMAPPINS_PVE_MAPGROUP = "pve"
+LIBMAPPINS_AVA_MAPGROUP = "pvp"
+LIBMAPPINS_AVA_IMPERIAL_MAPGROUP = "imperialPvP"
+LIBMAPPINS_BATTLEGROUND_MAPGROUP = "battleground"
 local LIBMAPPINS_GLOBAL_MAPGROUP = "global"
 
 local function GetPinTypeId(pinType)
@@ -468,6 +472,11 @@ end
 --                values are true.
 -------------------------------------------------------------------------------
 function lib:SetEnabled(pinType, state)
+  local mapGroup, filterKey = GetCurrentMapFilterGroup()
+  if mapGroup == LIBMAPPINS_GLOBAL_MAPGROUP then
+    return
+  end
+
   local pinTypeId = GetPinTypeId(pinType)
   if pinTypeId == nil then return end
 
@@ -478,12 +487,8 @@ function lib:SetEnabled(pinType, state)
     enabled = state and true or false
   end
 
-  local mapGroup, filterKey = GetCurrentMapFilterGroup()
   local filter = self.filters[pinTypeId]
   if filter then
-    if mapGroup == LIBMAPPINS_GLOBAL_MAPGROUP then
-      return -- Silently do nothing on global map filter
-    end
 
     local targetCheckbox = filter[mapGroup]
     if targetCheckbox then
@@ -687,8 +692,11 @@ end
 -- hidden:      true for hiding the filter, false for showing it
 -------------------------------------------------------------------------------
 function lib:SetPinFilterHidden(pinType, mapGroup, hidden)
-  local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
+  if mapGroup == LIBMAPPINS_GLOBAL_MAPGROUP then
+    return
+  end
 
+  local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
   if pinTypeId and self.filters[pinTypeId] then
     local control = self.filters[pinTypeId][mapGroup]
     if control and control:IsControlHidden() ~= hidden then
@@ -767,9 +775,11 @@ end
 --refresh checkbox state for world map filters
 function lib.OnMapChanged()
   local mapGroup, filterKey = GetCurrentMapFilterGroup()
-
   if lib.mapGroup ~= mapGroup then
     lib.mapGroup = mapGroup
+    if mapGroup == LIBMAPPINS_GLOBAL_MAPGROUP then
+      return
+    end
     for pinTypeId, filter in pairs(lib.filters) do
       if filter.vars then
         local state = filter.vars[filter[filterKey]]
@@ -973,8 +983,6 @@ SLASH_COMMANDS["/pinlist"] = function()
 end
 
 CALLBACK_MANAGER:RegisterCallback("WorldMapFiltersReady", function()
-  LibMapPins_PinManager = ZO_WorldMap_GetPinManager()
-
   lib.panelToKeyFields_Gamepad = {
     [GAMEPAD_WORLD_MAP_FILTERS.pvePanel] = "pve",
     [GAMEPAD_WORLD_MAP_FILTERS.pvpPanel] = "pvp",
