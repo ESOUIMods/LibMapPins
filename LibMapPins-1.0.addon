@@ -1,12 +1,13 @@
-## Title: |c89cff0LibMapPins|r |cff9b151.0 r44|r
-## Version: 1.0.44
-## AddOnVersion: 10044
+## Title: |c89cff0LibMapPins|r |cff9b151.0 r45|r
+## Version: 1.0.45
+## AddOnVersion: 10045
 ## Author: Garkin
 ## Contributors: Sensi, Assembler Maniac, Sharlikran, Scootworks
 ## APIVersion: 101045 101046
 ## IsLibrary: true
 
-LibMapPins-1.0.lua
+PC/LibMapPins-1.0.lua
+console/LibMapPins-1.0.lua
 
 ; This Add-on is not created by, affiliated with or sponsored by ZeniMax
 ; Media Inc. or its affiliates. The Elder Scrolls® and related logos are
