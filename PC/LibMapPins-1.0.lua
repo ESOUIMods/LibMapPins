@@ -29,7 +29,7 @@
 local lib = {}
 
 lib.name = "LibMapPins-1.0"
-lib.version = 10045
+lib.version = 10046
 lib.filters = {}
 lib.mapGroup = "pve"
 lib.pinManager = ZO_WorldMap_GetPinManager()
@@ -104,29 +104,34 @@ end
 -- pinTypeId:     unique number code for your pin type, return value from lib:AddPinType
 --                ( local pinTypeId = _G[pinTypeString] )
 -- pinLayoutData: table which can contain the following keys:
---    level =     number > 2, pins with higher level are drawn on the top of pins
---                with lower level.
---                Examples: Points of interest 50, quests 110, group members 130,
---                wayshrine 140, player 160.
---    texture =   string of function(pin). Function can return just one texture
---                or overlay, pulse and glow textures.
---    size =      texture will be resized to size*size, if not specified size is 20.
---    tint  =     ZO_ColorDef object or function(pin) which returns this object.
---                If defined, color of background texture is set to this color.
---    grayscale = true/false, could be function(pin). If defined and not false,
---                background texure will be converted to grayscale (https://en.wikipedia.org/wiki/Colorfulness)
---    insetX =    size of transparent texture border, used to handle mouse clicks
---    insetY =    dtto
---    minSize =   if not specified, default value is 18
---    minAreaSize = used for area pins
---    showsPinAndArea = true/false
---    isAnimated = true/false
---    mouseLevel
---    framesWide
---    framesHigh
---    framesPerSecond
---    hitInsetX
---    hitInsetY
+--    level =     number > 2, pins with higher level are drawn on top of pins with lower level.
+--                Examples: Points of interest 50, quests 110, group members 130, wayshrine 140,
+--                player 160.
+--    texture =   string or function(pin). A texture path or a function returning one or more textures
+--                (e.g., base, glow, and overlay). Determines the visual appearance of the pin.
+--    size =      number (optional). Sets the pin’s size in pixels (width and height). Defaults to 20.
+--    tint  =     ZO_ColorDef object or function(pin). If defined, the background texture color is set
+--                to this color.
+--    grayscale = boolean or function(pin). If true or function returns true, the texture is shown in
+--                grayscale.
+--    onToggleCallback: (optional) function(compassPinType, enabled). Called when the corresponding map
+--                filter checkbox is toggled. Commonly used to toggle compass pins via CustomCompassPins.
+--    mapPinTypeString: (optional) string passed as the first argument to onToggleCallback. Required if
+--                onToggleCallback is used, so the associated compass pin type can be enabled or disabled.
+--    insetX =    (optional) number. Adds horizontal transparent padding around the pin for better
+--                click targeting.
+--    insetY =    (optional) number. Same as insetX but vertical.
+--    minSize =   (optional) number. Prevents pins from shrinking below this size when zoomed out.
+--    minAreaSize = (optional) number. Minimum size of area-based pins (e.g., discovery radius).
+--    showsPinAndArea = (optional) boolean. If true, both the pin and its area (e.g., region circle) are
+--                displayed.
+--    isAnimated = (optional) boolean. Enables frame-based texture animation. Requires frame fields.
+--    mouseLevel = (optional) number. Determines click priority. Higher values are clicked above lower ones.
+--    framesWide = (optional) number. Number of horizontal frames in an animated texture.
+--    framesHigh = (optional) number. Number of vertical frames in an animated texture.
+--    framesPerSecond = (optional) number. Animation speed, in FPS. Requires isAnimated = true.
+--    hitInsetX =  (optional) number. Expands or shrinks the clickable area horizontally beyond the pin.
+--    hitInsetY =  (optional) number. Same as hitInsetX but vertical.
 --
 -------------------------------------------------------------------------------
 -- lib:AddPinType(pinTypeString, pinTypeAddCallback, pinTypeOnResizeCallback, pinLayoutData, pinTooltipCreator)
@@ -143,20 +148,14 @@ end
 -- pinLayoutData:  (nilable) table, details above
 -- pinTooltipCreator: (nilable) etiher string to display or table with the
 --                following keys:
---    creator =   function(pin) that creates tooltip - or I should say function
---                that will be called when mouse is over the pin, it does not
---                need to create tooltip.
---    tooltip =   (nilable) tooltip mode,  number between 1 and 4. It is
---                defined in mappin.lua as follows:
---                ZO_MAP_TOOLTIP_MODE =
---                {
---                    INFORMATION = 1,
---                    KEEP = 2,
---                    MAP_LOCATION = 3,
---                }
---    hasTooltip = (optional), function(pin) which returns true/false to
---                enable/disable tooltip.
---    categoryId = (nilable) number, right now it uses one of:
+--    creator =   function(pin). Called when the mouse hovers over the pin. This function defines the
+--                behavior of the tooltip, such as what content is shown or whether to show one at all.
+--                It is not required to create a tooltip. It may also be used for dynamic effects or
+--                other context-aware reactions during hover.
+--    tooltip =   (optional) number, selects the tooltip mode:
+--                1 = INFORMATION, 2 = KEEP, 3 = MAP_LOCATION.
+--    hasTooltip = (optional) function(pin) that returns true/false to enable/disable tooltip rendering.
+--    categoryId = (optional) number. Grouping ID for built-in map pin sorting layers:
 --                ZO_MapPin.PIN_ORDERS = {
 --                   DESTINATIONS = 10,
 --                   AVA_KEEP = 19,
@@ -177,19 +176,26 @@ end
 --                   WORLD_EVENT_UNITS = 45,
 --                   PLAYERS = 50,
 --                }
---    entryName = (nilable) string, such as a Wayshrine name. If function it must return a string.
---    headerCreator = (nilable) function
---    gamepadCategory = (nilable) string
---    gamepadCategoryIcon = (nilable) texture path
---    gamepadCategoryStyleName = (nilable) string
---                local mapQuestTitle = {
---                   fontFace = "$(GAMEPAD_BOLD_FONT)",
---                   fontSize = "$(GP_34)",
---                }
---    gamepadSpacing = (nilable) boolean
+--    filterTooltipCreator = (optional) function or string.
+--                If a function, it is called when the mouse hovers over the pin’s
+--                map filter checkbox and should return the tooltip text to display.
+--                If a string, it is wrapped in a function automatically.
+--                Only applies to the map filter UI in PC keyboard mode (not available in Gamepad UI).
+--    entryName = (optional) string or function(pin). Name shown in tooltips, such as a Wayshrine label.
+--    headerCreator = (optional) function(pin). Creates a header line in the tooltip layout.
+--    gamepadCategory = (optional) string. Header title shown for grouped Gamepad pins.
+--    gamepadCategoryIcon = (optional) string. Path to an icon displayed next to the Gamepad group name.
+--    gamepadCategoryStyleName = (optional) string. Style used for Gamepad headers (e.g., bold text).
+--                Example:
+--                   local mapQuestTitle = {
+--                      fontFace = "$(GAMEPAD_BOLD_FONT)",
+--                      fontSize = "$(GP_34)",
+--                   }
+--                Referenced as "ZO_MapLocation_GamepadQuestTitleHeader".
+--    gamepadSpacing = (optional) boolean. Adds spacing between Gamepad UI entries if true.
 --
 -------------------------------------------------------------------------------
-function lib:AddPinType(pinTypeString, pinTypeAddCallback, pinTypeOnResizeCallback, pinLayoutData, pinTooltipCreator)
+function lib:AddPinType(pinTypeString, pinTypeAddCallback, pinTypeOnResizeCallback, pinLayoutData, pinTooltipCreator, filterTooltipCreator)
   assert(type(pinTypeString) == "string", "Parameter pinTypeString is not a string.")
   assert(not _G[pinTypeString], "Parameter pinTypeString: " .. pinTypeString .. " already exists.")
   assert(type(pinTypeAddCallback) == "function", "Parameter pinTypeAddCallback is not a function.")
@@ -230,6 +236,17 @@ function lib:AddPinType(pinTypeString, pinTypeAddCallback, pinTypeOnResizeCallba
   local pinTypeId = _G[pinTypeString]
   self.pinManager:SetCustomPinEnabled(pinTypeId, true)
   self.pinManager:RefreshCustomPins(pinTypeId)
+
+  if filterTooltipCreator ~= nil then
+    local pinData = self.pinManager.customPins[pinTypeId]
+    if pinData then
+      if type(filterTooltipCreator) == "function" then
+        pinData.filterTooltipCreator = filterTooltipCreator
+      elseif type(filterTooltipCreator) == "string" then
+        pinData.filterTooltipCreator = function() return filterTooltipCreator end
+      end
+    end
+  end
 
   return pinTypeId
 end
@@ -583,11 +600,9 @@ end
 --                is true. If separate is true, savedVars exists but this argument
 --                is nil, state will be stored in savedVars[pinTypeString .. "_battleground"].
 -------------------------------------------------------------------------------
-function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVarsPveKey, savedVarsPvpKey, savedVarsImperialPvpKey, savedVarsBattlegroundKey, onToggleCallback)
+function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVarsPveKey, savedVarsPvpKey, savedVarsImperialPvpKey, savedVarsBattlegroundKey)
   local pinTypeId, pinTypeString = GetPinTypeIdAndString(pinType)
   if pinTypeId == nil or self.filters[pinTypeId] then return end
-
-  self.pinManager.customPins[pinTypeId].hasMapFilter = true
 
   self.filters[pinTypeId] = {}
   local filter = self.filters[pinTypeId]
@@ -614,6 +629,20 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
     local checkbox = panel.checkBoxPool:AcquireObject()
     ZO_CheckButton_SetLabelText(checkbox, label)
     panel:AnchorControl(checkbox)
+
+    local pinData = LibMapPins.pinManager and LibMapPins.pinManager.customPins[pinTypeId]
+    local tooltipFunc = pinData and pinData.filterTooltipCreator
+
+    if tooltipFunc then
+      checkbox:SetHandler("OnMouseEnter", function(self)
+        local tooltipText = tooltipFunc()
+        if tooltipText and tooltipText ~= "" then
+          ZO_Tooltips_ShowTextTooltip(self, LEFT, tooltipText)
+        end
+      end)
+      checkbox:SetHandler("OnMouseExit", ZO_Tooltips_HideTextTooltip)
+    end
+
     return checkbox
   end
 
@@ -632,7 +661,6 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
       if filter.vars then
         filter.vars[key] = state
 
-        -- Also update compass pin state if available
         if pinData and type(pinData.compassPinTypeString) == "string" then
           filter.vars[pinData.compassPinTypeString] = state
         end
@@ -640,7 +668,7 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
 
       self:SetEnabled(pinTypeId, state)
 
-      if pinData and pinData.hasMapFilter and type(pinData.onToggleCallback) == "function" then
+      if pinData and type(pinData.onToggleCallback) == "function" then
         pinData.onToggleCallback(pinData.compassPinTypeString, state)
       end
     end)
@@ -651,7 +679,7 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
       self:SetEnabled(pinTypeId, state)
 
       local pinData = self.pinManager.customPins[pinTypeId]
-      if pinData and pinData.hasMapFilter and type(pinData.onToggleCallback) == "function" then
+      if pinData and type(pinData.onToggleCallback) == "function" then
         pinData.onToggleCallback(pinData.compassPinTypeString, state)
       end
     end)
@@ -687,8 +715,7 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
     return -- SILENT EXIT
   end
 
-  -- Gamepad
-
+  -- Gamepad support
   local function GamepadToggleFunction(data)
     local currentPanel = GetCurrentGamepadMapFilterPanel()
     if not currentPanel or not currentPanel.list then return end
@@ -712,7 +739,7 @@ function lib:AddPinFilter(pinType, pinCheckboxText, separate, savedVars, savedVa
     currentPanel:BuildControls()
     SCREEN_NARRATION_MANAGER:QueueParametricListEntry(currentPanel.list)
 
-    if pinData and pinData.hasMapFilter and type(pinData.onToggleCallback) == "function" then
+    if pinData and type(pinData.onToggleCallback) == "function" then
       pinData.onToggleCallback(pinData.compassPinTypeString, data.currentValue)
     end
   end
